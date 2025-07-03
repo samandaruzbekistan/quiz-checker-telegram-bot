@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
+// Telegram webhook
+Route::post('/telegram/webhook', function (Request $request) {
+    $data = $request->all();
+    dd($data);
 });
