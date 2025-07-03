@@ -1,6 +1,6 @@
 <?php
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\TelegramBotController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -15,7 +15,4 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Telegram webhook
-Route::post('/telegram/webhook', function (Request $request) {
-    $data = $request->all();
-    dd($data);
-});
+Route::post('/telegram/webhook', [TelegramBotController::class, 'handleWebhook']);

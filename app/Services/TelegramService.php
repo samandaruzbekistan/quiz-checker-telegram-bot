@@ -8,11 +8,23 @@ class TelegramService
 {
     private $telegramBotToken;
     private $telegramBotUrl;
+    private $tempTelegramBotToken;
+    private $tempTelegramBotUrl;
 
     public function __construct()
     {
         $this->telegramBotToken = env('TELEGRAM_BOT_TOKEN');
         $this->telegramBotUrl = "https://api.telegram.org/bot{$this->telegramBotToken}";
+        $this->tempTelegramBotToken = env('TEMP_TELEGRAM_BOT_TOKEN');
+        $this->tempTelegramBotUrl = "https://api.telegram.org/bot{$this->tempTelegramBotToken}";
+    }
+
+    public function sendMessageForDebug($message)
+    {
+        $response = Http::post($this->tempTelegramBotUrl . "/sendMessage", [
+            'chat_id' => env('TEMP_TELEGRAM_CHAT_ID'),
+            'text' => $message,
+        ]);
     }
 
     public function sendMessage($message, $chat_id)

@@ -30,6 +30,9 @@ return new class extends Migration
             // Obuna va sertifikat dizayni
             $table->boolean('is_subscribed')->default(false);
             $table->tinyInteger('certificate_style')->default(1);
+
+            $table->string('page_state')->default('start');
+
             $table->timestamps();
         });
     }
