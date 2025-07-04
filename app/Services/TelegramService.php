@@ -71,4 +71,56 @@ class TelegramService
     }
 
 
+    public function checkChannelSubscription($user_chat_id)
+    {
+        // Get required channels from configuration
+        $requiredChannels = config('telegram.required_channels', []);
+
+        $unsubscribedChannels = [];
+
+        foreach ($requiredChannels as $channel) {
+            try {
+                $response = Http::post($this->telegramBotUrl . "/getChatMember", [
+                    'chat_id' => $channel['chat_id'],
+                    'user_id' => $user_chat_id
+                ]);
+
+                $result = $response->json();
+
+                // Check if the user is not a member or left the channel
+                if (!$result['ok'] || in_array($result['result']['status'], ['left', 'kicked'])) {
+                    $unsubscribedChannels[] = $channel;
+                }
+            } catch (\Exception $e) {
+                // If there's an error checking the channel, assume user is not subscribed
+                $unsubscribedChannels[] = $channel;
+            }
+        }
+
+        return [
+            'is_subscribed' => empty($unsubscribedChannels),
+            'unsubscribed_channels' => $unsubscribedChannels,
+            'all_channels' => $requiredChannels
+        ];
+    }
+
+    public function sendSubscriptionMessage($chat_id, $unsubscribedChannels)
+    {
+        $messages = config('telegram.subscription_messages');
+
+        $message = $messages['header'];
+
+        foreach ($unsubscribedChannels as $channel) {
+            $channelMessage = str_replace(
+                ['{name}', '{username}'],
+                [$channel['name'], $channel['username']],
+                $messages['channel_format']
+            );
+            $message .= $channelMessage;
+        }
+
+        $message .= $messages['footer'];
+
+        return $this->sendMessage($message, $chat_id);
+    }
 }

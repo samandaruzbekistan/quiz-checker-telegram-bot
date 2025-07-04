@@ -21,6 +21,16 @@ class TelegramBotController extends Controller
         $message_text = $data['message']['text'] ?? null;
 
         if ($message_text === "/start") {
+            // Check channel subscription first
+            $subscriptionStatus = $this->telegramService->checkChannelSubscription($chat_id);
+
+            if (!$subscriptionStatus['is_subscribed']) {
+                // User is not subscribed to required channels
+                $this->telegramService->sendSubscriptionMessage($chat_id, $subscriptionStatus['unsubscribed_channels']);
+                return;
+            }
+
+            // User is subscribed, proceed with normal start flow
             $user = $this->userRepository->getUserByChatId($chat_id);
             if (!$user) {
                 $this->userRepository->createUser([
