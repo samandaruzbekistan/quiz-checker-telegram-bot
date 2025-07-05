@@ -19,11 +19,17 @@ class TelegramService
         $this->tempTelegramBotUrl = "https://api.telegram.org/bot{$this->tempTelegramBotToken}";
     }
 
+    public function getBotUrl()
+    {
+        return $this->telegramBotUrl;
+    }
+
     public function sendMessageForDebug($message)
     {
         $response = Http::post($this->tempTelegramBotUrl . "/sendMessage", [
             'chat_id' => env('TEMP_TELEGRAM_CHAT_ID'),
             'text' => $message,
+            'parse_mode' => 'HTML',
         ]);
     }
 
@@ -64,6 +70,20 @@ class TelegramService
                 'keyboard' => $buttons,
                 'resize_keyboard' => true,
                 'one_time_keyboard' => true
+            ])
+        ]);
+
+        return $response->json();
+    }
+
+    public function sendInlineKeyboard($message, $chat_id, $inlineKeyboard)
+    {
+        $response = Http::post($this->telegramBotUrl . "/sendMessage", [
+            'chat_id' => $chat_id,
+            'text' => $message,
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode([
+                'inline_keyboard' => $inlineKeyboard
             ])
         ]);
 
@@ -121,6 +141,76 @@ class TelegramService
 
         $message .= $messages['footer'];
 
-        return $this->sendMessage($message, $chat_id);
+        // Create inline keyboard with channel links and subscription check button
+        $inlineKeyboard = [];
+
+        // Add channel buttons (2 per row)
+        $channelRow = [];
+        foreach ($unsubscribedChannels as $channel) {
+            $channelRow[] = [
+                'text' => "📢 {$channel['name']}",
+                'url' => "https://t.me/{$channel['username']}"
+            ];
+
+            if (count($channelRow) == 2) {
+                $inlineKeyboard[] = $channelRow;
+                $channelRow = [];
+            }
+        }
+
+        // Add remaining channel if odd number
+        if (!empty($channelRow)) {
+            $inlineKeyboard[] = $channelRow;
+        }
+
+        // Add subscription check button
+        $inlineKeyboard[] = [
+            [
+                'text' => '✅ Obuna bo\'ldim',
+                'callback_data' => 'check_subscription'
+            ]
+        ];
+
+        return $this->sendInlineKeyboard($message, $chat_id, $inlineKeyboard);
+    }
+
+    public function answerCallbackQuery($callback_query_id, $text = null)
+    {
+        $data = ['callback_query_id' => $callback_query_id];
+
+        if ($text) {
+            $data['text'] = $text;
+        }
+
+        $response = Http::post($this->telegramBotUrl . "/answerCallbackQuery", $data);
+        return $response->json();
+    }
+
+    public function editMessageText($chat_id, $message_id, $text, $reply_markup = null)
+    {
+        $data = [
+            'chat_id' => $chat_id,
+            'message_id' => $message_id,
+            'text' => $text,
+            'parse_mode' => 'HTML'
+        ];
+
+        if ($reply_markup) {
+            $data['reply_markup'] = json_encode($reply_markup);
+        }
+
+        $response = Http::post($this->telegramBotUrl . "/editMessageText", $data);
+        return $response->json();
+    }
+
+    public function editMessageReplyMarkup($chat_id, $message_id, $reply_markup)
+    {
+        $response = Http::post($this->telegramBotUrl . "/editMessageReplyMarkup", [
+            'chat_id' => $chat_id,
+            'message_id' => $message_id,
+            'reply_markup' => json_encode($reply_markup)
+        ]);
+
+        return $response->json();
     }
 }

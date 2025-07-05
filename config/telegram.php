@@ -47,7 +47,7 @@ return [
     */
     'subscription_messages' => [
         'header' => "⚠️ <b>Iltimos, quyidagi kanallarga obuna bo'ling:</b>\n\n",
-        'footer' => "Obuna bo'lgandan so'ng /start buyrug'ini qayta yuboring.",
-        'channel_format' => "📢 <b>{name}</b>\n🔗 <a href='https://t.me/{username}'>{username}</a>\n\n"
+        'footer' => "\nObuna bo'lgandan so'ng \"✅ Obuna bo'ldim\" tugmasini bosing.",
+        'channel_format' => "📢 <b>{name}</b>\n"
     ]
 ];

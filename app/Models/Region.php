@@ -27,4 +27,46 @@ class Region extends Model
     {
         return $this->hasManyThrough(Village::class, District::class, 'region_id', 'district_id', 'id', 'id');
     }
+
+    /**
+     * Get all regions for inline keyboard
+     */
+    public static function getAllForKeyboard()
+    {
+        return self::select('id', 'name_uz')
+            ->orderBy('name_uz')
+            ->get()
+            ->map(function ($region) {
+                return [
+                    'text' => $region->name_uz,
+                    'callback_data' => 'region_' . $region->id
+                ];
+            });
+    }
+
+    /**
+     * Format regions for inline keyboard (2 columns)
+     */
+    public static function getFormattedForKeyboard()
+    {
+        $regions = self::getAllForKeyboard();
+        $keyboard = [];
+        $row = [];
+
+        foreach ($regions as $region) {
+            $row[] = $region;
+
+            if (count($row) == 2) {
+                $keyboard[] = $row;
+                $row = [];
+            }
+        }
+
+        // Add remaining region if odd number
+        if (!empty($row)) {
+            $keyboard[] = $row;
+        }
+
+        return $keyboard;
+    }
 }
