@@ -29,6 +29,14 @@ class TelegramBotController extends Controller
         $message_text = $data['message']['text'] ?? null;
 
         if ($message_text === "/start") {
+            // Check if user is already registered
+            $existingUser = $this->userRepository->getUserByChatId($chat_id);
+            if ($existingUser && $existingUser->is_registered) {
+                // User is already registered, show main menu
+                $this->showMainMenu($chat_id);
+                return response()->json(['ok' => true]);
+            }
+
             // Check channel subscription first
             $subscriptionStatus = $this->telegramService->checkChannelSubscription($chat_id);
 
@@ -64,6 +72,9 @@ class TelegramBotController extends Controller
             } elseif ($user && $user->page_state === 'waiting_for_phone') {
                 // User is entering phone number
                 $this->handlePhoneInput($chat_id, $message_text, $user);
+            } elseif ($user && $user->page_state === 'main_menu') {
+                // User is in main menu, handle menu button clicks
+                $this->handleMainMenuText($chat_id, $message_text, $user);
             }
         }
 
@@ -148,6 +159,11 @@ class TelegramBotController extends Controller
         // Handle restart registration
         if ($callback_data === 'restart_registration') {
             $this->handleRestartRegistration($chat_id, $message_id);
+        }
+
+        // Handle back to main menu
+        if ($callback_data === 'back_to_main_menu') {
+            $this->showMainMenu($chat_id, $message_id);
         }
 
         // Answer callback query to remove loading state
@@ -685,16 +701,12 @@ class TelegramBotController extends Controller
     {
         // Mark registration as completed
         $this->userRepository->updateUser($chat_id, [
-            'page_state' => 'registration_completed',
+            'page_state' => 'main_menu',
             'is_registered' => true
         ]);
 
-        // Edit the message to show success
-        $this->telegramService->editMessageText(
-            $chat_id,
-            $message_id,
-            "🎉 <b>Tabriklaymiz!</b>\n\nRo'yxatdan muvaffaqiyatli o'tdingiz. Imtihon vaqtida siz bilan bog'lanamiz.\n\nBoshqa savollaringiz bo'lsa, @admin ga yozing."
-        );
+        // Show main menu with 6 buttons
+        $this->showMainMenu($chat_id, $message_id);
     }
 
     private function handleRestartRegistration($chat_id, $message_id)
@@ -719,5 +731,163 @@ class TelegramBotController extends Controller
             $message_id,
             "Yangi ro'yxatdan o'tish boshlandi.\n\nIltimos, to'liq ismingizni kiriting:"
         );
+    }
+
+    private function showMainMenu($chat_id, $message_id = null)
+    {
+        $mainMenuMessage = "🎉 <b>Tabriklaymiz!</b>\n\nRo'yxatdan muvaffaqiyatli o'tdingiz.\n\nAsosiy menyu:";
+
+        $mainMenuKeyboard = [
+            ['📝 Test yaratish', '✅ Javoblarni tekshirish'],
+            ['🏆 Sertifikatlar', '🔸 Testlar'],
+            ['⚙️ Profil sozlamalari', '📚 Kitoblar']
+        ];
+
+        if ($message_id) {
+            // Edit existing message and send new keyboard
+            $this->telegramService->editMessageText(
+                $chat_id,
+                $message_id,
+                $mainMenuMessage
+            );
+            $this->telegramService->sendReplyKeyboard(
+                $mainMenuMessage,
+                $chat_id,
+                $mainMenuKeyboard
+            );
+        } else {
+            // Send new message with keyboard
+            $this->telegramService->sendReplyKeyboard(
+                $mainMenuMessage,
+                $chat_id,
+                $mainMenuKeyboard
+            );
+        }
+    }
+
+    private function handleMainMenuText($chat_id, $message_text, $user)
+    {
+        switch ($message_text) {
+            case '📝 Test yaratish':
+                $this->handleCreateTest($chat_id, null); // No message_id for new message
+                break;
+            case '✅ Javoblarni tekshirish':
+                $this->handleCheckAnswers($chat_id, null); // No message_id for new message
+                break;
+            case '🏆 Sertifikatlar':
+                $this->handleCertificates($chat_id, null); // No message_id for new message
+                break;
+            case '🔸 Testlar':
+                $this->handleTests($chat_id, null); // No message_id for new message
+                break;
+            case '⚙️ Profil sozlamalari':
+                $this->handleProfileSettings($chat_id, null); // No message_id for new message
+                break;
+            case '📚 Kitoblar':
+                $this->handleBooks($chat_id, null); // No message_id for new message
+                break;
+        }
+    }
+
+    private function handleCreateTest($chat_id, $message_id)
+    {
+        $message = "📝 <b>Test yaratish</b>\n\nBu funksiya tez orada ishga tushadi. Iltimos, kuting...";
+
+        if ($message_id) {
+            $this->telegramService->editMessageText($chat_id, $message_id, $message);
+        } else {
+            $this->telegramService->sendMessage($message, $chat_id);
+        }
+    }
+
+    private function handleCheckAnswers($chat_id, $message_id)
+    {
+        $message = "✅ <b>Javoblarni tekshirish</b>\n\nBu funksiya tez orada ishga tushadi. Iltimos, kuting...";
+
+        if ($message_id) {
+            $this->telegramService->editMessageText($chat_id, $message_id, $message);
+        } else {
+            $this->telegramService->sendMessage($message, $chat_id);
+        }
+    }
+
+    private function handleCertificates($chat_id, $message_id)
+    {
+        $message = "🏆 <b>Sertifikatlar</b>\n\nBu funksiya tez orada ishga tushadi. Iltimos, kuting...";
+
+        if ($message_id) {
+            $this->telegramService->editMessageText($chat_id, $message_id, $message);
+        } else {
+            $this->telegramService->sendMessage($message, $chat_id);
+        }
+    }
+
+    private function handleTests($chat_id, $message_id)
+    {
+        $message = "🔸 <b>Testlar</b>\n\nBu funksiya tez orada ishga tushadi. Iltimos, kuting...";
+
+        if ($message_id) {
+            $this->telegramService->editMessageText($chat_id, $message_id, $message);
+        } else {
+            $this->telegramService->sendMessage($message, $chat_id);
+        }
+    }
+
+    private function handleProfileSettings($chat_id, $message_id)
+    {
+        $user = $this->userRepository->getUserByChatId($chat_id);
+        if (!$user) return;
+
+        $profileMessage = "⚙️ <b>Profil sozlamalari</b>\n\n";
+        $profileMessage .= "👤 <b>F.I.O:</b> {$user->full_name}\n";
+        $profileMessage .= "📍 <b>Viloyat:</b> {$user->region}\n";
+        $profileMessage .= "🏘️ <b>Tuman:</b> {$user->district}\n";
+        $profileMessage .= "👥 <b>Ishtirokchi turi:</b> {$this->getParticipantTypeLabel($user->participant_type)}\n";
+        $profileMessage .= "🏫 <b>O'quv muassasi:</b> {$user->school_name}\n";
+        $profileMessage .= "📚 <b>Sinf:</b> {$user->grade}-sinf\n";
+        $profileMessage .= "🌐 <b>Imtihon tili:</b> {$this->getLanguageLabel($user->lang)}\n";
+        $profileMessage .= "📞 <b>Telefon raqam:</b> {$user->phone_number}\n\n";
+        $profileMessage .= "Ma'lumotlaringizni o'zgartirish uchun qayta ro'yxatdan o'ting.";
+
+        $profileKeyboard = [
+            [
+                [
+                    'text' => '🔄 Qayta ro\'yxatdan o\'tish',
+                    'callback_data' => 'restart_registration'
+                ]
+            ],
+            [
+                [
+                    'text' => '🔙 Asosiy menyuga qaytish',
+                    'callback_data' => 'back_to_main_menu'
+                ]
+            ]
+        ];
+
+        if ($message_id) {
+            $this->telegramService->editMessageText(
+                $chat_id,
+                $message_id,
+                $profileMessage,
+                ['inline_keyboard' => $profileKeyboard]
+            );
+        } else {
+            $this->telegramService->sendInlineKeyboard(
+                $profileMessage,
+                $chat_id,
+                $profileKeyboard
+            );
+        }
+    }
+
+    private function handleBooks($chat_id, $message_id)
+    {
+        $message = "📚 <b>Kitoblar</b>\n\nBu funksiya tez orada ishga tushadi. Iltimos, kuting...";
+
+        if ($message_id) {
+            $this->telegramService->editMessageText($chat_id, $message_id, $message);
+        } else {
+            $this->telegramService->sendMessage($message, $chat_id);
+        }
     }
 }

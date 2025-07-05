@@ -92,6 +92,23 @@ class TelegramService
         return $response->json();
     }
 
+    public function sendReplyKeyboard($message, $chat_id, $keyboard)
+    {
+        $response = Http::post($this->telegramBotUrl . "/sendMessage", [
+            'chat_id' => $chat_id,
+            'text' => $message,
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode([
+                'keyboard' => $keyboard,
+                'resize_keyboard' => true,
+                'one_time_keyboard' => false,
+                'persistent' => true
+            ])
+        ]);
+
+        return $response->json();
+    }
+
 
     public function checkChannelSubscription($user_chat_id)
     {
