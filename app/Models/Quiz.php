@@ -14,6 +14,7 @@ class Quiz extends Model
         'code',
         'description',
         'subject',
+        'date',
         'type',
         'questions_count',
     ];

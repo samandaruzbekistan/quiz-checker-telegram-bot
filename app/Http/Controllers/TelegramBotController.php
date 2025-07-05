@@ -75,6 +75,21 @@ class TelegramBotController extends Controller
             } elseif ($user && $user->page_state === 'main_menu') {
                 // User is in main menu, handle menu button clicks
                 $this->handleMainMenuText($chat_id, $message_text, $user);
+            } elseif ($user && $user->page_state === 'waiting_for_test_type') {
+                // User is selecting test type
+                $this->handleTestTypeSelection($chat_id, $message_text, $user);
+            } elseif ($user && $user->page_state === 'waiting_for_question_count') {
+                // User is entering question count
+                $this->handleQuestionCountInput($chat_id, $message_text, $user);
+            } elseif ($user && $user->page_state === 'waiting_for_test_date') {
+                // User is entering test date
+                $this->handleTestDateInput($chat_id, $message_text, $user);
+            } elseif ($user && $user->page_state === 'waiting_for_start_time') {
+                // User is entering start time
+                $this->handleStartTimeInput($chat_id, $message_text, $user);
+            } elseif ($user && $user->page_state === 'waiting_for_end_time') {
+                // User is entering end time
+                $this->handleEndTimeInput($chat_id, $message_text, $user);
             }
         }
 
@@ -791,13 +806,24 @@ class TelegramBotController extends Controller
 
     private function handleCreateTest($chat_id, $message_id)
     {
-        $message = "📝 <b>Test yaratish</b>\n\nBu funksiya tez orada ishga tushadi. Iltimos, kuting...";
+        $message = "📝 <b>Test yaratish</b>\n\nQanday turdagi test yaratmoqchisiz?";
+
+        $testTypesKeyboard = [
+            ['📝 Oddiy test', '🔰 Fanga doir test'],
+            ['🗂️ Maxsus test', '🏠 Bosh menu']
+        ];
 
         if ($message_id) {
+            // Edit existing message and send new keyboard
             $this->telegramService->editMessageText($chat_id, $message_id, $message);
+            $this->telegramService->sendReplyKeyboard($message, $chat_id, $testTypesKeyboard);
         } else {
-            $this->telegramService->sendMessage($message, $chat_id);
+            // Send new message with keyboard
+            $this->telegramService->sendReplyKeyboard($message, $chat_id, $testTypesKeyboard);
         }
+
+        // Update user state to waiting for test type selection
+        $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_test_type']);
     }
 
     private function handleCheckAnswers($chat_id, $message_id)
@@ -889,5 +915,63 @@ class TelegramBotController extends Controller
         } else {
             $this->telegramService->sendMessage($message, $chat_id);
         }
+    }
+
+    private function handleTestTypeSelection($chat_id, $message_text, $user)
+    {
+        switch ($message_text) {
+            case '📝 Oddiy test':
+                $this->handleOrdinaryTest($chat_id);
+                break;
+            case '🔰 Fanga doir test':
+                $this->handleSubjectTest($chat_id);
+                break;
+            case '🗂️ Maxsus test':
+                $this->handleSpecialTest($chat_id);
+                break;
+            case '🏠 Bosh menu':
+                $this->returnToMainMenu($chat_id);
+                break;
+        }
+    }
+
+    private function handleOrdinaryTest($chat_id)
+    {
+        $message = "📝 <b>Oddiy test yaratish</b>\n\n1-qadam: Savollar sonini kiriting.\nM-n: 15";
+
+        // Update user state to waiting for question count
+        $this->userRepository->updateUser($chat_id, [
+            'page_state' => 'waiting_for_question_count',
+            'test_type' => 'ordinary'
+        ]);
+
+        $this->telegramService->sendMessage($message, $chat_id);
+    }
+
+    private function handleSubjectTest($chat_id)
+    {
+        $message = "🔰 <b>Fanga doir test</b>\n\nBu funksiya tez orada ishga tushadi. Iltimos, kuting...";
+        $this->telegramService->sendMessage($message, $chat_id);
+
+        // Return to main menu after showing message
+        $this->returnToMainMenu($chat_id);
+    }
+
+    private function handleSpecialTest($chat_id)
+    {
+        $message = "🗂️ <b>Maxsus test</b>\n\nBu funksiya tez orada ishga tushadi. Iltimos, kuting...";
+        $this->telegramService->sendMessage($message, $chat_id);
+
+        // Return to main menu after showing message
+        $this->returnToMainMenu($chat_id);
+    }
+
+    private function returnToMainMenu($chat_id)
+    {
+        // Update user state back to main menu
+        $this->userRepository->updateUser($chat_id, ['page_state' => 'main_menu']);
+
+        // Show main menu
+        $this->showMainMenu($chat_id);
     }
 }

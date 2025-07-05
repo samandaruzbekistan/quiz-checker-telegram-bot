@@ -23,6 +23,7 @@ return new class extends Migration
             $table->foreign('author_id')->references('id')->on('users');
             $table->datetime('start_time')->nullable();
             $table->datetime('end_time')->nullable();
+            $table->date('date')->nullable();
             $table->enum('status', ['draft', 'published', 'archived'])->default('draft');
             $table->timestamps();
         });
