@@ -22,6 +22,7 @@ return new class extends Migration
             $table->string('district')->nullable();          // Tuman
             $table->string('school_name')->nullable();       // Maktab/Litsey nomi
             $table->enum('participant_type', ['student', 'teacher', 'other'])->default('student');
+            $table->enum('education_institution', ['school', 'academic_lyceum', 'university'])->default('school');
             $table->string('phone_number')->nullable();
             $table->integer('grade')->nullable();            // Sinf
             $table->string('lang')->default('uz');           // Imtihon tili

@@ -25,6 +25,7 @@ class User extends Authenticatable
         'lang',
         'role',
         'is_subscribed',
+        'education_institution',
         'certificate_style',
     ];
 

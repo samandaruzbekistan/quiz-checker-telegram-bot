@@ -1,212 +1,145 @@
-# Name Input and Region Selection Flow
+# Telegram Bot Registration Flow
 
-This document explains the user registration flow that handles name input and region selection in the Telegram bot.
+This document describes the complete registration flow for the Telegram bot, including channel subscription verification, user information collection, and confirmation.
 
-## Overview
+## Registration Flow Overview
 
-After a user passes the channel subscription check, the bot guides them through a registration process:
+The registration process follows this sequence:
 
-1. **Name Input**: User enters their full name
-2. **Region Selection**: User selects their region from inline buttons
-3. **Confirmation**: Bot confirms the selection and updates user state
+1. **Channel Subscription Check** - Verify user is subscribed to required channels
+2. **Name Input** - Collect user's full name
+3. **Region Selection** - Select region via inline keyboard
+4. **District Selection** - Select district via inline keyboard
+5. **Participant Type Selection** - Choose participant type (Student/Teacher/Other)
+6. **Educational Institution Selection** - Choose institution type (School/Academic Lyceum/Higher Education)
+7. **School Name Input** - Enter the specific school name
+8. **Grade Selection** - Select grade (1-11) via inline keyboard
+9. **Language Selection** - Choose exam language (Uzbek/Russian) via inline keyboard
+10. **Phone Number Input** - Enter parent's phone number
+11. **Confirmation** - Review all information and confirm
 
-## User Flow
+## Back Navigation
 
-### 1. Start Command (`/start`)
+Starting from district selection, each step includes an "Orqaga 🔙" (Back) button that allows users to navigate to the previous step and modify their selection.
 
-When a user sends `/start`:
-
-1. Bot checks channel subscription
-2. If subscribed, creates/updates user with `page_state = 'waiting_for_name'`
-3. Sends message: "Salom, botga xush kelibsiz! Iltimos, ismingizni kiriting."
-
-### 2. Name Input
-
-When user sends any text (their name):
-
-1. Bot saves the name to `full_name` field
-2. Updates `page_state` to `'waiting_for_region'`
-3. Sends inline keyboard with all regions
-4. Message: "Viloyatingizni tanlang:"
-
-### 3. Region Selection
-
-When user clicks a region button:
-
-1. Bot receives callback query with `region_{id}` data
-2. Finds the region by ID
-3. Updates user's `region` field with region name
-4. Updates `page_state` to `'region_selected'`
-5. Edits the message to show confirmation
-6. Message: "✅ **{Region Name}** viloyati tanlandi!\n\nKeyingi qadamga o'ting..."
-
-## Database Schema
-
-### User Table Updates
-
-The user table stores the following information:
-
-- `full_name`: User's entered name
-- `region`: Selected region name (in Uzbek)
-- `page_state`: Current state in the registration flow
+## Implementation Details
 
 ### Page States
 
-- `'start'`: Initial state
-- `'waiting_for_name'`: Waiting for user to enter name
-- `'waiting_for_region'`: Waiting for user to select region
-- `'region_selected'`: Region has been selected
+The bot tracks user progress using the `page_state` field:
 
-## Region Model
+- `start` - Initial state
+- `waiting_for_subscription` - Waiting for channel subscription
+- `waiting_for_name` - Waiting for name input
+- `waiting_for_region` - Waiting for region selection
+- `waiting_for_district` - Waiting for district selection
+- `waiting_for_participant_type` - Waiting for participant type selection
+- `waiting_for_institution` - Waiting for educational institution selection
+- `waiting_for_school_name` - Waiting for school name input
+- `waiting_for_grade` - Waiting for grade selection
+- `waiting_for_language` - Waiting for language selection
+- `waiting_for_phone` - Waiting for phone number input
+- `waiting_for_confirmation` - Waiting for confirmation
+- `registration_completed` - Registration completed
 
-The `Region` model extends the package model and provides:
+### User Data Fields
 
-### Methods
+The following fields are collected during registration:
 
-- `getAllForKeyboard()`: Returns all regions formatted for inline keyboard
-- `getFormattedForKeyboard()`: Returns regions in 2-column layout
+- `chat_id` - Telegram chat ID
+- `full_name` - User's full name
+- `region` - Selected region
+- `district` - Selected district
+- `participant_type` - Student/Teacher/Other
+- `school_name` - Educational institution name
+- `grade` - Grade level (1-11)
+- `lang` - Exam language (uz/ru)
+- `phone_number` - Parent's phone number
+- `is_registered` - Registration completion status
 
-### Structure
+### Inline Keyboards
 
-```php
-[
-    'text' => 'Region Name',
-    'callback_data' => 'region_{id}'
-]
-```
+All selections use inline keyboards with callback queries:
 
-## TelegramService Methods
+#### Region Selection
+- Shows all available regions from the database
+- Each button has callback_data: `region_{region_id}`
 
-### New Methods
+#### District Selection
+- Shows districts for the selected region
+- Each button has callback_data: `district_{district_id}`
+- Includes "Orqaga 🔙" button with callback_data: `back_to_region`
 
-- `sendInlineKeyboard($message, $chat_id, $inlineKeyboard)`: Sends message with inline keyboard
-- `getBotUrl()`: Returns the bot's API URL
+#### Participant Type Selection
+- O'quvchi (Student)
+- O'qituvchi (Teacher)
+- Boshqa ishtirokchi (Other)
+- Includes "Orqaga 🔙" button with callback_data: `back_to_district`
 
-## Controller Methods
+#### Educational Institution Selection
+- Maktab (School)
+- Akademik litsey (Academic Lyceum)
+- Oliy ta'lim (Higher Education)
+- Includes "Orqaga 🔙" button with callback_data: `back_to_participant_type`
 
-### TelegramBotController
+#### Grade Selection
+- Numbers 1-11 arranged in rows of 3
+- Each button has callback_data: `grade_{number}`
+- Includes "Orqaga 🔙" button with callback_data: `back_to_institution`
 
-- `handleWebhook()`: Main webhook handler
-- `handleCallbackQuery()`: Handles inline button clicks
-- `handleNameInput()`: Processes name input
-- `handleRegionSelection()`: Processes region selection
-- `answerCallbackQuery()`: Answers callback queries
-- `editMessage()`: Edits existing messages
+#### Language Selection
+- O'zbek tili (Uzbek)
+- Rus tili (Russian)
+- Includes "Orqaga 🔙" button with callback_data: `back_to_grade`
 
-## Callback Query Handling
+#### Confirmation
+- ✅ Ha, to'g'ri (Yes, correct)
+- ❌ Qayta kiritish (Re-enter)
 
-### Region Selection
+### Text Input Handling
 
-When a user clicks a region button:
+The bot handles text input for:
+- Name input (when `page_state` is `waiting_for_name`)
+- School name input (when `page_state` is `waiting_for_school_name`)
+- Phone number input (when `page_state` is `waiting_for_phone`)
 
-1. **Callback Data**: `region_{id}` (e.g., `region_1`)
-2. **Processing**: Extracts region ID and finds region
-3. **Update**: Saves region name to user record
-4. **Response**: Edits message to show confirmation
+### Phone Number Validation
 
-### Example Callback Query
+Phone numbers are validated using the format: `+998XXXXXXXXX`
+- Must start with +998
+- Must be followed by exactly 9 digits
+- Invalid format shows error message and asks for re-entry
 
-```json
-{
-    "callback_query": {
-        "id": "123456789",
-        "from": {
-            "id": 987654321
-        },
-        "data": "region_1",
-        "message": {
-            "message_id": 42
-        }
-    }
-}
-```
+### Confirmation Display
 
-## Inline Keyboard Format
+The confirmation screen shows all collected information in a formatted message:
+- Full name
+- Region and district
+- Participant type
+- Educational institution name
+- Grade
+- Exam language
+- Phone number
 
-### Region Buttons
+### Error Handling
 
-Regions are displayed in a 2-column layout:
+- Invalid phone number format shows error message
+- Back navigation preserves previously entered data
+- Restart registration clears all data and starts over
 
-```
-[Toshkent viloyati] [Farg'ona viloyati]
-[Andijon viloyati]  [Namangan viloyati]
-[Samarqand viloyati]
-```
+## Channel Subscription
 
-### Button Structure
-
-```php
-[
-    [
-        ['text' => 'Toshkent viloyati', 'callback_data' => 'region_1'],
-        ['text' => 'Farg\'ona viloyati', 'callback_data' => 'region_2']
-    ],
-    [
-        ['text' => 'Andijon viloyati', 'callback_data' => 'region_3']
-    ]
-]
-```
-
-## Error Handling
-
-### Missing User
-
-If user is not found during callback processing:
-- No action taken (user should restart with `/start`)
-
-### Invalid Region
-
-If region ID is not found:
-- No action taken (invalid callback data)
-
-### API Errors
-
-If Telegram API calls fail:
-- Errors are logged but don't break the flow
-- User can retry the action
+Before registration begins, users must subscribe to required Telegram channels. The bot:
+1. Checks subscription status
+2. Shows channel links with inline "✅ Obuna bo'ldim" button
+3. Re-verifies subscription when button is clicked
+4. Proceeds to registration only after confirmed subscription
 
 ## Testing
 
-### Test Coverage
-
-The functionality is covered by `TelegramNameAndRegionTest`:
-
-- `test_name_input_saves_user_name()`: Verifies name saving
-- `test_region_selection_updates_user_region()`: Verifies region selection
-- `test_regions_formatted_for_keyboard()`: Verifies keyboard formatting
-- `test_inline_keyboard_sends_correct_format()`: Verifies API calls
-
-### Running Tests
-
-```bash
-php artisan test tests/Feature/TelegramNameAndRegionTest.php
-```
-
-## Configuration
-
-### Environment Variables
-
-No additional environment variables are required for this feature.
-
-### Database
-
-Ensure the regions table is populated with region data:
-
-```bash
-php artisan db:seed --class=RegionsSeeder
-```
-
-## Security Considerations
-
-- Input validation: Names are stored as-is (consider adding validation)
-- Region validation: Only valid region IDs are processed
-- User state: Page state prevents unauthorized actions
-- Callback queries: Only processed for valid users
-
-## Future Enhancements
-
-- Add input validation for names
-- Add district selection after region
-- Add confirmation step before saving
-- Add ability to edit selections
-- Add multi-language support for region names 
+The registration flow is tested in `tests/Feature/TelegramRegistrationFlowTest.php` which covers:
+- Channel subscription verification
+- Complete registration flow
+- Back navigation
+- Error handling
+- Confirmation and restart functionality 
