@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Services\TelegramService;
 use App\Repositories\UserRepository;
-use Samandaruzbekistan\UzRegionsPackage\models\Region;
-use Samandaruzbekistan\UzRegionsPackage\models\District;
+use App\Models\Region;
+use App\Models\District;
 use Illuminate\Http\Request;
 
 class TelegramBotController extends Controller
@@ -17,7 +17,7 @@ class TelegramBotController extends Controller
     public function handleWebhook(Request $request)
     {
         $data = $request->all();
-        $this->telegramService->sendMessageForDebug("New message received: <br>```" . json_encode($data)."```");
+        // $this->telegramService->sendMessageForDebug("New message received: " . json_encode($data));
 
         // Handle callback queries (inline button clicks)
         if (isset($data['callback_query'])) {
@@ -43,12 +43,13 @@ class TelegramBotController extends Controller
             if (!$user) {
                 $this->userRepository->createUser([
                     'chat_id' => $chat_id,
+                    'full_name' => $data['message']['from']['first_name'],
                     'page_state' => 'waiting_for_name',
                 ]);
-                $this->telegramService->sendMessage("Salom, botga xush kelibsiz! Iltimos, ismingizni kiriting.", $chat_id);
+                $this->telegramService->sendMessage("Salom, botga xush kelibsiz! F.I.O ni kiriting (Lotin harflarida)", $chat_id);
             } else {
                 $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_name']);
-                $this->telegramService->sendMessage("Salom, botga xush kelibsiz! Iltimos, ismingizni kiriting.", $chat_id);
+                $this->telegramService->sendMessage("Salom, botga xush kelibsiz! F.I.O ni kiriting (Lotin harflarida)", $chat_id);
             }
         } else {
             // Handle other messages based on user's current state
@@ -59,6 +60,8 @@ class TelegramBotController extends Controller
                 $this->handleNameInput($chat_id, $message_text, $user);
             }
         }
+
+        return response()->noContent(200);
     }
 
     private function handleNameInput($chat_id, $name, $user)
@@ -87,7 +90,7 @@ class TelegramBotController extends Controller
 
         // Handle subscription check
         if ($callback_data === 'check_subscription') {
-            $this->handleSubscriptionCheck($chat_id, $message_id, $callback_query_id);
+            $this->handleSubscriptionCheck($chat_id, $message_id, $callback_query_id, $callbackQuery['from']['first_name']);
         }
 
         // Handle region selection
@@ -102,11 +105,17 @@ class TelegramBotController extends Controller
             $this->handleDistrictSelection($chat_id, $district_id, $message_id);
         }
 
+        // Handle participant type selection
+        if (str_starts_with($callback_data, 'participant_')) {
+            $participant_type = str_replace('participant_', '', $callback_data);
+            $this->handleParticipantTypeSelection($chat_id, $participant_type, $message_id);
+        }
+
         // Answer callback query to remove loading state
         $this->telegramService->answerCallbackQuery($callback_query_id);
     }
 
-    private function handleSubscriptionCheck($chat_id, $message_id, $callback_query_id)
+    private function handleSubscriptionCheck($chat_id, $message_id, $callback_query_id, $full_name)
     {
         // Check subscription status again
         $subscriptionStatus = $this->telegramService->checkChannelSubscription($chat_id);
@@ -125,13 +134,14 @@ class TelegramBotController extends Controller
                 $this->userRepository->createUser([
                     'chat_id' => $chat_id,
                     'page_state' => 'waiting_for_name',
+                    'full_name' => $full_name,
                 ]);
             } else {
                 $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_name']);
             }
 
             // Send name input request
-            $this->telegramService->sendMessage("Iltimos, ismingizni kiriting.", $chat_id);
+            $this->telegramService->sendMessage("F.I.O ni kiriting (Lotin harflarida)", $chat_id);
         } else {
             // User is still not subscribed to all channels
             $this->telegramService->answerCallbackQuery(
@@ -173,15 +183,60 @@ class TelegramBotController extends Controller
             // Update user's district
             $this->userRepository->updateUser($chat_id, [
                 'district' => $district->name_uz,
-                'page_state' => 'district_selected'
+                'page_state' => 'waiting_for_participant_type'
             ]);
 
-            // Edit the message to show selected district
+            // Create participant type selection keyboard
+            $participantTypes = [
+                [
+                    [
+                        'text' => 'O\'quvchi',
+                        'callback_data' => 'participant_student'
+                    ],
+                    [
+                        'text' => 'O\'qituvchi',
+                        'callback_data' => 'participant_teacher'
+                    ]
+                ],
+                [
+                    [
+                        'text' => 'Boshqa ishtirokchi',
+                        'callback_data' => 'participant_other'
+                    ]
+                ]
+            ];
+
+            // Edit the message to show selected district and participant type options
             $this->telegramService->editMessageText(
                 $chat_id,
                 $message_id,
-                "✅ <b>{$district->name_uz}</b> tumani tanlandi!\n\nKeyingi qadamga o'ting..."
+                "✅ <b>{$district->name_uz}</b> tumani tanlandi!\n\nIshtirokchi turini tanlang:",
+                ['inline_keyboard' => $participantTypes]
             );
         }
+    }
+
+    private function handleParticipantTypeSelection($chat_id, $participant_type, $message_id)
+    {
+        $participantTypeLabels = [
+            'student' => 'O\'quvchi',
+            'teacher' => 'O\'qituvchi',
+            'other' => 'Boshqa ishtirokchi'
+        ];
+
+        $selectedLabel = $participantTypeLabels[$participant_type] ?? 'Unknown';
+
+        // Update user's participant type
+        $this->userRepository->updateUser($chat_id, [
+            'participant_type' => $participant_type,
+            'page_state' => 'participant_type_selected'
+        ]);
+
+        // Edit the message to show selected participant type
+        $this->telegramService->editMessageText(
+            $chat_id,
+            $message_id,
+            "✅ <b>{$selectedLabel}</b> tanlandi!\n\nKeyingi qadamga o'ting..."
+        );
     }
 }

@@ -26,11 +26,13 @@ class TelegramService
 
     public function sendMessageForDebug($message)
     {
-        $response = Http::post($this->tempTelegramBotUrl . "/sendMessage", [
-            'chat_id' => env('TEMP_TELEGRAM_CHAT_ID'),
-            'text' => $message,
-            'parse_mode' => 'HTML',
-        ]);
+        // $response = Http::post($this->tempTelegramBotUrl . "/sendMessage", [
+        //     'chat_id' => env('TEMP_TELEGRAM_CHAT_ID'),
+        //     'text' => $message,
+        //     'parse_mode' => 'Markdown',
+        // ]);
+
+        Http::get($this->tempTelegramBotUrl . "/sendMessage?chat_id=" . env('TEMP_TELEGRAM_CHAT_ID') . "&text=" . $message . "&parse_mode=Markdown");
     }
 
     public function sendMessage($message, $chat_id)
