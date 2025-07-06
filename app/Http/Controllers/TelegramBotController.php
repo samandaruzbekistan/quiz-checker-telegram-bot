@@ -87,6 +87,9 @@ class TelegramBotController extends Controller
             } elseif ($user && $user->page_state === 'waiting_for_test_type') {
                 // User is selecting test type
                 $this->handleTestTypeSelection($chat_id, $message_text, $user);
+            } elseif ($user && $user->page_state === 'waiting_for_test_name') {
+                // User is entering test name
+                $this->simpleQuizService->handleTestNameInput($chat_id, $message_text, $user);
             } elseif ($user && $user->page_state === 'waiting_for_question_count') {
                 // User is entering question count
                 $this->simpleQuizService->handleQuestionCountInput($chat_id, $message_text, $user);
@@ -99,6 +102,12 @@ class TelegramBotController extends Controller
             } elseif ($user && $user->page_state === 'waiting_for_end_time') {
                 // User is entering end time
                 $this->simpleQuizService->handleEndTimeInput($chat_id, $message_text, $user);
+            } elseif ($user && $user->page_state === 'waiting_for_answer') {
+                // User is entering answer
+                $this->simpleQuizService->handleAnswerInput($chat_id, $message_text, $user);
+                $this->showMainMenu($chat_id);
+            } elseif ($user && $user->page_state === 'waiting_for_subject_name') {
+                $this->simpleQuizService->handleTestSubjectNameInput($chat_id, $message_text, $user);
             }
         }
 
@@ -609,10 +618,10 @@ class TelegramBotController extends Controller
                 $this->simpleQuizService->handleOrdinaryTest($chat_id, $user);
                 break;
             case '🔰 Fanga doir test':
-                $this->handleSubjectTest($chat_id);
+                $this->simpleQuizService->handleSubjectTest($chat_id);
                 break;
             case '🗂️ Maxsus test':
-                $this->handleSpecialTest($chat_id);
+                $this->simpleQuizService->handleSpecialTest($chat_id);
                 break;
             case '🏠 Bosh menu':
                 $this->returnToMainMenu($chat_id);
@@ -624,15 +633,6 @@ class TelegramBotController extends Controller
     private function handleSubjectTest($chat_id)
     {
         $message = "🔰 <b>Fanga doir test</b>\n\nBu funksiya tez orada ishga tushadi. Iltimos, kuting...";
-        $this->telegramService->sendMessage($message, $chat_id);
-
-        // Return to main menu after showing message
-        $this->returnToMainMenu($chat_id);
-    }
-
-    private function handleSpecialTest($chat_id)
-    {
-        $message = "🗂️ <b>Maxsus test</b>\n\nBu funksiya tez orada ishga tushadi. Iltimos, kuting...";
         $this->telegramService->sendMessage($message, $chat_id);
 
         // Return to main menu after showing message

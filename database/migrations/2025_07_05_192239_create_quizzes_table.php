@@ -18,6 +18,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('subject')->nullable();
             $table->enum('type', ['simple', 'subject', 'special'])->default('simple');
+            $table->string('answer')->nullable();
             $table->integer('questions_count')->nullable();
             $table->unsignedBigInteger('author_id');
             $table->string('start_time')->nullable();

@@ -16,6 +16,77 @@ class QuizService
     {
     }
 
+    public function handleSubjectTest($chat_id){
+        $draftQuiz = $this->quizAndAnswerRepository->getDraftQuizByUserId($chat_id);
+        if ($draftQuiz) {
+            $this->quizAndAnswerRepository->deleteQuiz($draftQuiz->id);
+        }
+
+        $message = "🗂️ <b>Fanga doir test yaratish</b>\nFan nomini kiriting\nM-n: Matematika";
+        $this->telegramService->sendMessage($message, $chat_id);
+
+        $this->quizAndAnswerRepository->createQuiz([
+            'author_id' => $chat_id,
+            'status' => 'draft',
+            'type' => 'subject'
+        ]);
+
+        $this->userRepository->updateUser($chat_id, [
+            'page_state' => 'waiting_for_subject_name',
+        ]);
+    }
+
+    public function handleTestSubjectNameInput($chat_id, $message_text, $user)
+    {
+        $quiz = $this->quizAndAnswerRepository->getDraftQuizByUserId($chat_id);
+        if (!$quiz) return;
+
+        $quiz->subject = $message_text;
+        $quiz->save();
+
+        $this->telegramService->sendMessage("Savollar sonini kiriting.\nM-n: 15", $chat_id);
+
+        $this->userRepository->updateUser($chat_id, [
+            'page_state' => 'waiting_for_question_count',
+        ]);
+    }
+
+    public function handleSpecialTest($chat_id)
+    {
+        $draftQuiz = $this->quizAndAnswerRepository->getDraftQuizByUserId($chat_id);
+        if ($draftQuiz) {
+            $this->quizAndAnswerRepository->deleteQuiz($draftQuiz->id);
+        }
+
+        $message = "🗂️ <b>Maxsus test yaratish</b>\n\nTest nomini kiriting\nM-n:Prezident maktabiga tayyorgarlik testi";
+        $this->telegramService->sendMessage($message, $chat_id);
+
+        $this->quizAndAnswerRepository->createQuiz([
+            'author_id' => $chat_id,
+            'status' => 'draft',
+            'type' => 'special'
+        ]);
+
+        $this->userRepository->updateUser($chat_id, [
+            'page_state' => 'waiting_for_test_name',
+        ]);
+    }
+
+    public function handleTestNameInput($chat_id, $message_text, $user)
+    {
+        $quiz = $this->quizAndAnswerRepository->getDraftQuizByUserId($chat_id);
+        if (!$quiz) return;
+
+        $quiz->title = $message_text;
+        $quiz->save();
+
+        $this->telegramService->sendMessage("Savollar sonini kiriting.\nM-n: 15", $chat_id);
+
+        $this->userRepository->updateUser($chat_id, [
+            'page_state' => 'waiting_for_question_count',
+        ]);
+    }
+
     public function handleOrdinaryTest($chat_id, $user)
     {
         $message = "📝 <b>Oddiy test yaratish</b>\n\n1-qadam: Savollar sonini kiriting.\nM-n: 15";
@@ -119,14 +190,58 @@ class QuizService
         $quiz = $this->quizAndAnswerRepository->getDraftQuizByUserId($chat_id);
         if (!$quiz) return;
 
+        // Formatni tekshirish: HH:MM
         if (!preg_match('/^\d{2}:\d{2}$/', $message_text)) {
             $this->telegramService->sendMessage("❌ Iltimos, vaqtni HH:MM formatida kiriting.\nMasalan: 14:00", $chat_id);
             return;
         }
 
         list($hour, $minute) = explode(':', $message_text);
-        if ($hour > 23 || $minute > 59) {
+        if ((int)$hour > 23 || (int)$minute > 59) {
             $this->telegramService->sendMessage("❌ Tugash vaqti noto‘g‘ri kiritildi.\nMasalan: 14:00", $chat_id);
+            return;
+        }
+
+        // Boshlanish va tugash vaqtini taqqoslash
+        if ($quiz->start_time) {
+            $start = \Carbon\Carbon::createFromFormat('H:i', $quiz->start_time);
+            $end = \Carbon\Carbon::createFromFormat('H:i', $message_text);
+
+            if ($end->lessThanOrEqualTo($start)) {
+                $this->telegramService->sendMessage("❌ Tugash vaqti boshlanish vaqtidan keyin bo‘lishi kerak.\nBoshlanish: {$quiz->start_time}", $chat_id);
+                return;
+            }
+        }
+
+        // Saqlash
+        $quiz->end_time = $message_text;
+        $quiz->save();
+
+        // Javoblarni kiritishga o‘tish
+        $this->telegramService->sendMessage("✅ Testni yaratish tugadi. Javoblarini kiriting. \nMasalan: 10 ta savolli test uchun <b>abcdabcdcd</b>", $chat_id);
+
+        $this->userRepository->updateUser($chat_id, [
+            'page_state' => 'waiting_for_answer',
+        ]);
+    }
+
+    public function handleAnswerInput($chat_id, $message_text, $user)
+    {
+        $quiz = $this->quizAndAnswerRepository->getDraftQuizByUserId($chat_id);
+        if (!$quiz) return;
+
+        $questionCount = $quiz->questions_count;
+
+        $answers = strtolower(trim($message_text)); // kichik harflarga o‘tkazish
+
+        // Validatsiya: faqat a,b,c,d harflari, va soni to‘g‘ri bo‘lishi kerak
+        if (!preg_match('/^[abcd]+$/', $answers)) {
+            $this->telegramService->sendMessage("❌ Javoblar faqat a, b, c, d harflaridan iborat bo‘lishi kerak. Iltimos, qayta kiriting.", $chat_id);
+            return;
+        }
+
+        if (strlen($message_text) != $questionCount) {
+            $this->telegramService->sendMessage("❌ Javoblar soni testdagi savollar soniga teng emas. Kutilgan: $questionCount ta javob.", $chat_id);
             return;
         }
 
@@ -137,15 +252,23 @@ class QuizService
         } while ($test);
 
         $quiz->code = $code;
-        $quiz->end_time = $message_text;
+        $quiz->answer = $answers;
+        $quiz->status = 'published';
         $quiz->save();
 
         $message = "<b>✅ Test bazaga qo'shildi</b>\n\n";
         $message .= "<b>Test kodi:</b> {$quiz->code}\n";
+        if($quiz->subject){
+            $message .= "<b>Fan:</b> {$quiz->subject}\n";
+        }
+        if($quiz->title){
+            $message .= "<b>Nomi:</b> {$quiz->title}\n";
+        }
         $message .= "<b>Savollar soni:</b> {$quiz->questions_count}\n";
         $message .= "<b>Sana:</b> {$quiz->date}\n";
         $message .= "<b>Boshlanish:</b> {$quiz->start_time}\n";
         $message .= "<b>Tugash:</b> {$quiz->end_time}";
+        $message .= "\n\n<b>To'gri javob:</b> {$answers}";
 
         $this->telegramService->sendMessage($message, $chat_id);
 
