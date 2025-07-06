@@ -17,7 +17,7 @@ class TelegramBotController extends Controller
     public function handleWebhook(Request $request)
     {
         $data = $request->all();
-        // $this->telegramService->sendMessageForDebug("New message received: " . json_encode($data));
+        $this->telegramService->sendMessageForDebug(json_encode($data));
 
         // Handle callback queries (inline button clicks)
         if (isset($data['callback_query'])) {
@@ -752,6 +752,10 @@ class TelegramBotController extends Controller
     {
         $mainMenuMessage = "🎉 <b>Tabriklaymiz!</b>\n\nRo'yxatdan muvaffaqiyatli o'tdingiz.\n\nAsosiy menyu:";
 
+        $this->userRepository->updateUser($chat_id, [
+            'page_state' => 'main_menu'
+        ]);
+
         $mainMenuKeyboard = [
             ['📝 Test yaratish', '✅ Javoblarni tekshirish'],
             ['🏆 Sertifikatlar', '🔸 Testlar'],
@@ -800,6 +804,10 @@ class TelegramBotController extends Controller
                 break;
             case '📚 Kitoblar':
                 $this->handleBooks($chat_id, null); // No message_id for new message
+                break;
+            default:
+                $this->telegramService->sendMessage("Bunday funksiya mavjud emas", $chat_id);
+                $this->showMainMenu($chat_id);
                 break;
         }
     }
