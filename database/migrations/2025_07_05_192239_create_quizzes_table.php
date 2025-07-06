@@ -20,10 +20,9 @@ return new class extends Migration
             $table->enum('type', ['simple', 'subject', 'special'])->default('simple');
             $table->integer('questions_count')->nullable();
             $table->unsignedBigInteger('author_id');
-            $table->foreign('author_id')->references('id')->on('users');
-            $table->datetime('start_time')->nullable();
-            $table->datetime('end_time')->nullable();
-            $table->date('date')->nullable();
+            $table->string('start_time')->nullable();
+            $table->string('end_time')->nullable();
+            $table->string('date')->nullable();
             $table->enum('status', ['draft', 'published', 'archived'])->default('draft');
             $table->timestamps();
         });

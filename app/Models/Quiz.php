@@ -13,6 +13,7 @@ class Quiz extends Model
         'title',
         'code',
         'description',
+        'author_id',
         'subject',
         'date',
         'type',

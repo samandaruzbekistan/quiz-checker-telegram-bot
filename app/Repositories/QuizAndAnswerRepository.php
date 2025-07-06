@@ -36,4 +36,22 @@ class QuizAndAnswerRepository
     {
         return Answer::where('user_id', $user_id)->get();
     }
+
+    public function getDraftQuizByUserId($chat_id)
+    {
+        return Quiz::where('author_id', $chat_id)->where('status', 'draft')->first();
+    }
+
+    public function deleteQuiz($quiz_id)
+    {
+        $this->deleteAnswerByQuizId($quiz_id);
+        return Quiz::where('id', $quiz_id)->delete();
+    }
+
+    private function deleteAnswerByQuizId($quiz_id)
+    {
+        return Answer::where('quiz_id', $quiz_id)->delete();
+    }
+
+
 }
