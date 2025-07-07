@@ -10,6 +10,7 @@ use App\Models\District;
 use Illuminate\Http\Request;
 use App\Services\Auth\AuthService;
 use App\Services\Quizzes\QuizService;
+use App\Services\Quizzes\QuizResultService;
 
 class TelegramBotController extends Controller
 {
@@ -18,7 +19,8 @@ class TelegramBotController extends Controller
         protected UserRepository $userRepository,
         protected QuizAndAnswerRepository $quizAndAnswerRepository,
         protected AuthService $authService,
-        protected QuizService $simpleQuizService
+        protected QuizService $simpleQuizService,
+        protected QuizResultService $quizResultService
         )
     {
     }
@@ -62,6 +64,7 @@ class TelegramBotController extends Controller
                     'chat_id' => $chat_id,
                     'full_name' => $data['message']['from']['first_name'],
                     'page_state' => 'waiting_for_name',
+                    'username' => $data['message']['from']['username'] ?? null,
                 ]);
                 $this->telegramService->sendMessage("Salom, botga xush kelibsiz! F.I.O ni kiriting (Lotin harflarida)", $chat_id);
             } else {
@@ -108,6 +111,11 @@ class TelegramBotController extends Controller
                 $this->showMainMenu($chat_id);
             } elseif ($user && $user->page_state === 'waiting_for_subject_name') {
                 $this->simpleQuizService->handleTestSubjectNameInput($chat_id, $message_text, $user);
+            } elseif ($user && $user->page_state === 'waiting_for_test_code_in_check_answers') {
+                $this->quizResultService->handleTestCodeInCheckAnswers($chat_id, $message_text);
+            } elseif ($user && $user->page_state === 'waiting_for_test_answer_input') {
+                $this->quizResultService->handleTestAnswerInput($chat_id, $message_text);
+                $this->showMainMenu($chat_id);
             }
         }
 
@@ -444,7 +452,7 @@ class TelegramBotController extends Controller
 
         $mainMenuKeyboard = [
             ['📝 Test yaratish', '✅ Javoblarni tekshirish'],
-            ['🏆 Sertifikatlar', '🔸 Testlar'],
+            ['🏆 Sertifikatlar', '🔸 Testlarim'],
             ['⚙️ Profil sozlamalari', '📚 Kitoblar']
         ];
 
@@ -477,13 +485,13 @@ class TelegramBotController extends Controller
                 $this->handleCreateTest($chat_id, null); // No message_id for new message
                 break;
             case '✅ Javoblarni tekshirish':
-                $this->handleCheckAnswers($chat_id, null); // No message_id for new message
+                $this->quizResultService->handleCheckAnswers($chat_id);
                 break;
             case '🏆 Sertifikatlar':
                 $this->handleCertificates($chat_id, null); // No message_id for new message
                 break;
-            case '🔸 Testlar':
-                $this->handleTests($chat_id, null); // No message_id for new message
+            case '🔸 Testlarim':
+                $this->quizResultService->handleMyQuizzes($chat_id);
                 break;
             case '⚙️ Profil sozlamalari':
                 $this->handleProfileSettings($chat_id, null); // No message_id for new message
@@ -518,17 +526,6 @@ class TelegramBotController extends Controller
 
         // Update user state to waiting for test type selection
         $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_test_type']);
-    }
-
-    private function handleCheckAnswers($chat_id, $message_id)
-    {
-        $message = "✅ <b>Javoblarni tekshirish</b>\n\nBu funksiya tez orada ishga tushadi. Iltimos, kuting...";
-
-        if ($message_id) {
-            $this->telegramService->editMessageText($chat_id, $message_id, $message);
-        } else {
-            $this->telegramService->sendMessage($message, $chat_id);
-        }
     }
 
     private function handleCertificates($chat_id, $message_id)

@@ -34,6 +34,8 @@ return new class extends Migration
 
             $table->string('page_state')->default('start');
 
+            $table->string('active_quiz_id')->nullable();
+
             $table->timestamps();
         });
     }

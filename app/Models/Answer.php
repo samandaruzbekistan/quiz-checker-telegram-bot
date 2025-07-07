@@ -13,6 +13,11 @@ class Answer extends Model
         'user_id',
         'quiz_id',
         'answer',
+        'chat_id',
+        'answer_text',
+        'percentage',
+        'correct_answers_count',
+        'incorrect_answers_count',
     ];
 
     public function user()

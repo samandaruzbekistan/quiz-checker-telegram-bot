@@ -53,5 +53,11 @@ class QuizAndAnswerRepository
         return Answer::where('quiz_id', $quiz_id)->delete();
     }
 
+    public function getQuizzesByUserIdAndType($chat_id, $type)
+    {
+        return Quiz::where('author_id', $chat_id)->where('type', $type)->get();
+    }
+
+
 
 }

@@ -54,11 +54,12 @@ class TelegramService
         ]);
     }
 
-    public function sendDocument($document, $chat_id)
+    public function sendDocument($document, $chat_id, $caption = null)
     {
         $response = Http::post($this->telegramBotUrl . "/sendDocument", [
             'chat_id' => $chat_id,
             'document' => $document,
+            'caption' => $caption,
         ]);
     }
 

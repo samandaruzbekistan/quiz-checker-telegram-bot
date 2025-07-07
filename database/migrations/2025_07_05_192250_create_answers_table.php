@@ -18,6 +18,11 @@ return new class extends Migration
             $table->unsignedBigInteger('quiz_id');
             $table->foreign('quiz_id')->references('id')->on('quizzes');
             $table->string('answer');
+            $table->unsignedBigInteger('chat_id');
+            $table->text('answer_text')->nullable();
+            $table->float('percentage')->nullable();
+            $table->integer('correct_answers_count')->nullable();
+            $table->integer('incorrect_answers_count')->nullable();
             $table->timestamps();
         });
     }
