@@ -39,12 +39,22 @@ class QuizResultService
         $quiz = $this->quizAndAnswerRepository->getQuizByCode($test_code);
 
         if (!$quiz) {
-            $this->telegramService->sendMessage("❗ Bunday test topilmadi. Qayta urinib ko'ring.", $chat_id);
+            $inline_keyboard = [
+                [
+                    ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                ]
+            ];
+            $this->telegramService->sendInlineKeyboard("❗ Bunday test topilmadi. Qayta urinib ko'ring.", $chat_id, $inline_keyboard);
             return;
         }
 
         if ($quiz->status == 'archived') {
-            $this->telegramService->sendMessage("❗ Bu test yakunlangan. Qayta urinib ko'ring.", $chat_id);
+            $inline_keyboard = [
+                [
+                    ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                ]
+            ];
+            $this->telegramService->sendInlineKeyboard("❗ Bu test yakunlangan. Qayta urinib ko'ring.", $chat_id, $inline_keyboard);
             return;
         }
 
@@ -54,13 +64,23 @@ class QuizResultService
         $now = now();
 
         if ($now->lt($start)) {
-            $this->telegramService->sendMessage("⏳ Test hali boshlanmagan. Boshlanish vaqti: <b>{$start}</b>", $chat_id);
+            $inline_keyboard = [
+                [
+                    ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                ]
+            ];
+            $this->telegramService->sendInlineKeyboard("⏳ Test hali boshlanmagan. Boshlanish vaqti: <b>{$start}</b>", $chat_id, $inline_keyboard);
             $this->handleCheckAnswers($chat_id);
             return;
         }
 
         if ($now->gt($end)) {
-            $this->telegramService->sendMessage("⌛ Test vaqti tugagan. Tugash vaqti: <b>{$end}</b>", $chat_id);
+            $inline_keyboard = [
+                [
+                    ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                ]
+            ];
+            $this->telegramService->sendInlineKeyboard("⌛ Test vaqti tugagan. Tugash vaqti: <b>{$end}</b>", $chat_id, $inline_keyboard);
             $this->handleCheckAnswers($chat_id);
             return;
         }
@@ -85,7 +105,7 @@ class QuizResultService
             $this->userRepository->updateUser($chat_id, [
                 'page_state' => 'waiting_for_test_answer_input',
             ]);
-            return;
+            return 0;
         }
 
         // Javobni faqat harflar yoki raqam-harf ko‘rinishida qabul qilamiz
@@ -93,13 +113,13 @@ class QuizResultService
 
         if (!preg_match('/^[a-d]+$/', $message_text)) {
             $this->telegramService->sendMessage("❌ Noto‘g‘ri format! Faqat a, b, c, d harflaridan foydalaning.\nMasalan: abcdabcdab yoki 1a2b3c4d", $chat_id);
-            return;
+            return 0;
         }
 
         // Javoblar soni test savollar soniga teng bo‘lishi kerak
         if (strlen($message_text) != $quiz->questions_count) {
             $this->telegramService->sendMessage("❗ Siz <b>{$quiz->questions_count}</b> ta savolga javob yuborishingiz kerak edi.\nSiz yubordingiz: <b>" . strlen($message_text) . "</b> ta. Qayta urinib ko'ring.", $chat_id);
-            // return;
+            return 0;
         }
 
         // Endi testni tekshirish va natijani chiqarish mumkin
@@ -149,6 +169,8 @@ class QuizResultService
             'page_state' => "main_menu",
             'active_quiz_id' => null,
         ]);
+
+        return 1;
     }
 
 
