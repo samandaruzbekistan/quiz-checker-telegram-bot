@@ -5,12 +5,11 @@ namespace App\Http\Controllers;
 use App\Repositories\QuizAndAnswerRepository;
 use App\Services\TelegramService;
 use App\Repositories\UserRepository;
-use App\Models\Region;
-use App\Models\District;
 use Illuminate\Http\Request;
 use App\Services\Auth\AuthService;
 use App\Services\Quizzes\QuizService;
 use App\Services\Quizzes\QuizResultService;
+use App\Services\CertificateService;
 
 class TelegramBotController extends Controller
 {
@@ -20,7 +19,8 @@ class TelegramBotController extends Controller
         protected QuizAndAnswerRepository $quizAndAnswerRepository,
         protected AuthService $authService,
         protected QuizService $simpleQuizService,
-        protected QuizResultService $quizResultService
+        protected QuizResultService $quizResultService,
+        protected CertificateService $certificateService
         )
     {
     }
@@ -126,6 +126,8 @@ class TelegramBotController extends Controller
                 $this->simpleQuizService->handleStatisticQuizCodeInput($chat_id, $message_text);
             } elseif ($user && $user->page_state === 'waiting_for_statistic_data') {
                 $this->simpleQuizService->handleStatisticDataInput($chat_id, $message_text);
+            } elseif ($user && $user->page_state === 'waiting_for_certificate_code') {
+                $this->handleCertificateCodeInput($chat_id, $message_text);
             }
         }
 
@@ -541,12 +543,63 @@ class TelegramBotController extends Controller
 
     private function handleCertificates($chat_id, $message_id)
     {
-        $message = "🏆 <b>Sertifikatlar</b>\n\nBu funksiya tez orada ishga tushadi. Iltimos, kuting...";
+        $message = "🏆 Qaysi test bo'yicha sertifikatingizni olmoqchisiz? Kerakli test kodini kiriting";
+        $back_buttons = [
+            [
+                ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+            ]
+        ];
+        $this->telegramService->sendInlineKeyboard($message, $chat_id, $back_buttons);
 
-        if ($message_id) {
-            $this->telegramService->editMessageText($chat_id, $message_id, $message);
-        } else {
-            $this->telegramService->sendMessage($message, $chat_id);
+        $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_certificate_code']);
+    }
+
+    private function handleCertificateCodeInput($chat_id, $message_text)
+    {
+        $quiz_code = $message_text;
+        $quiz = $this->quizAndAnswerRepository->getQuizByCode($quiz_code);
+        if (!$quiz) {
+            $inline_keyboard = [
+                [
+                    ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                ]
+            ];
+            $this->telegramService->sendInlineKeyboard("❌ Bunday test topilmadi. Qayta urinib ko'ring.", $chat_id, $inline_keyboard);
+            return;
+        }
+        $answer = $this->quizAndAnswerRepository->getAnswerByQuizIdAndUserChatId($quiz->id, $chat_id);
+        if (!$answer) {
+            $inline_keyboard = [
+                [
+                    ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                ]
+            ];
+            $this->telegramService->sendInlineKeyboard("❌ Bunday test natijasi topilmadi. Qayta urinib ko'ring.", $chat_id, $inline_keyboard);
+            return;
+        }
+
+        $this->sendCertificateAsJpg($chat_id, $answer);
+    }
+
+        private function sendCertificateAsJpg($chat_id, $answer)
+    {
+        try {
+            // Generate certificate using the service
+            $certificatePath = $this->certificateService->generateCertificate($answer, $chat_id);
+
+            if ($certificatePath) {
+                // Send certificate to user
+                $this->telegramService->sendPhoto($certificatePath, $chat_id, "🏆 Sertifikatingiz tayyor!");
+
+                // Clean up the generated file
+                $this->certificateService->cleanupCertificate($certificatePath);
+            } else {
+                $this->telegramService->sendMessage("❌ Sertifikat yaratishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.", $chat_id);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Certificate generation error: ' . $e->getMessage());
+            $this->telegramService->sendMessage("❌ Sertifikat yaratishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.", $chat_id);
         }
     }
 
@@ -610,13 +663,11 @@ class TelegramBotController extends Controller
 
     private function handleBooks($chat_id, $message_id)
     {
-        $message = "📚 <b>Kitoblar</b>\n\nBu funksiya tez orada ishga tushadi. Iltimos, kuting...";
+        $message = "📚 Kitoblar yuklangan kanalga a'zo bo'ling\n\nhttps://t.me/PM_XSM\nhttps://t.me/sirojiddin95";
 
-        if ($message_id) {
-            $this->telegramService->editMessageText($chat_id, $message_id, $message);
-        } else {
-            $this->telegramService->sendMessage($message, $chat_id);
-        }
+        $this->telegramService->sendMessage($message, $chat_id);
+
+        $this->returnToMainMenu($chat_id);
     }
 
     private function handleTestTypeSelection($chat_id, $message_text, $user)

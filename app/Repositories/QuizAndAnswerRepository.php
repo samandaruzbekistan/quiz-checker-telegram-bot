@@ -66,6 +66,11 @@ class QuizAndAnswerRepository
             ->get();
     }
 
+    public function getAnswerByQuizIdAndUserChatId($quiz_id, $user_chat_id)
+    {
+        return Answer::where('quiz_id', $quiz_id)->where('chat_id', $user_chat_id)->first();
+    }
+
     public function getAnswersByQuizIdWithoutUser($quiz_id)
     {
         return Answer::where('quiz_id', $quiz_id)->get();

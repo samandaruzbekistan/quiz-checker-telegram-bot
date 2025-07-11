@@ -46,12 +46,20 @@ class TelegramService
         return $response->json();
     }
 
-    public function sendPhoto($photo, $chat_id)
+    public function sendPhoto($photo, $chat_id, $caption = null)
     {
-        $response = Http::post($this->telegramBotUrl . "/sendPhoto", [
+        $data = [
             'chat_id' => $chat_id,
             'photo' => $photo,
-        ]);
+        ];
+
+        if ($caption) {
+            $data['caption'] = $caption;
+            $data['parse_mode'] = 'HTML';
+        }
+
+        $response = Http::post($this->telegramBotUrl . "/sendPhoto", $data);
+        return $response->json();
     }
 
     public function sendDocument($chat_id, $filePath, $caption = null)
