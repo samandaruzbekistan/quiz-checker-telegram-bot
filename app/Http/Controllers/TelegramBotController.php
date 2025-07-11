@@ -28,7 +28,7 @@ class TelegramBotController extends Controller
     public function handleWebhook(Request $request)
     {
         $data = $request->all();
-        $this->telegramService->sendMessageForDebug(json_encode($data));
+        // $this->telegramService->sendMessageForDebug(json_encode($data));
 
         // Handle callback queries (inline button clicks)
         if (isset($data['callback_query'])) {

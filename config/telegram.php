@@ -34,6 +34,11 @@ return [
             'chat_id' => env('REQUIRED_CHANNEL_2_ID', '@example_channel_2'),
             'name' => env('REQUIRED_CHANNEL_2_NAME', 'Example Channel 2'),
             'username' => env('REQUIRED_CHANNEL_2_USERNAME', '@example_channel_2')
+        ],
+        [
+            'chat_id' => env('REQUIRED_CHANNEL_3_ID', '@example_channel_3'),
+            'name' => env('REQUIRED_CHANNEL_3_NAME', 'Example Channel 3'),
+            'username' => env('REQUIRED_CHANNEL_3_USERNAME', '@example_channel_3')
         ]
     ],
 
