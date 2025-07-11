@@ -557,7 +557,7 @@ class TelegramBotController extends Controller
     private function handleCertificateCodeInput($chat_id, $message_text)
     {
         $quiz_code = $message_text;
-        $this->telegramService->sendMessageForDebug("📨 Foydalanuvchi yubordi: $quiz_code");
+        // $this->telegramService->sendMessageForDebug("📨 Foydalanuvchi yubordi: $quiz_code");
 
         $quiz = $this->quizAndAnswerRepository->getQuizByCode($quiz_code);
         if (!$quiz) {
@@ -565,7 +565,7 @@ class TelegramBotController extends Controller
             return;
         }
 
-        $this->telegramService->sendMessageForDebug("✅ Test topildi: ID={$quiz->id}");
+        // $this->telegramService->sendMessageForDebug("✅ Test topildi: ID={$quiz->id}");
 
         $answer = $this->quizAndAnswerRepository->getAnswerByQuizIdAndUserChatId($quiz->id, $chat_id);
         if (!$answer) {
@@ -573,7 +573,7 @@ class TelegramBotController extends Controller
             return;
         }
 
-        $this->telegramService->sendMessageForDebug("✅ Answer topildi: ID={$answer->id}");
+        // $this->telegramService->sendMessageForDebug("✅ Answer topildi: ID={$answer->id}");
 
         $this->sendCertificateAsJpg($chat_id, $answer);
     }
@@ -581,18 +581,20 @@ class TelegramBotController extends Controller
 
     private function sendCertificateAsJpg($chat_id, $answer)
     {
-        $this->telegramService->sendMessageForDebug("📥 Sertifikat generatsiyasi boshlandi");
+        // $this->telegramService->sendMessageForDebug("📥 Sertifikat generatsiyasi boshlandi");
 
         try {
             $certificatePath = $this->certificateService->generateCertificate($answer, $chat_id);
 
             if ($certificatePath) {
-                $this->telegramService->sendMessageForDebug("✅ Sertifikat tayyor: $certificatePath");
+                // $this->telegramService->sendMessageForDebug("✅ Sertifikat tayyor: $certificatePath");
 
                 $this->telegramService->sendPhoto($certificatePath, $chat_id, "🏆 Sertifikatingiz tayyor!");
 
-                $this->telegramService->sendMessageForDebug("🧹 Fayl tozalanmoqda");
+                // $this->telegramService->sendMessageForDebug("🧹 Fayl tozalanmoqda");
                 $this->certificateService->cleanupCertificate($certificatePath);
+
+                $this->showMainMenu($chat_id);
             } else {
                 $this->telegramService->sendMessage("❌ Sertifikat yaratilmadi", $chat_id);
             }

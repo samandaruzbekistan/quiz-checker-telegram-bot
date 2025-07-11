@@ -49,7 +49,7 @@ class TelegramService
     public function sendPhoto($photoPath, $chat_id, $caption = null)
     {
         if (!file_exists($photoPath)) {
-            $this->sendMessageForDebug("❌ Fayl topilmadi: $photoPath", $chat_id);
+            // $this->sendMessageForDebug("❌ Fayl topilmadi: $photoPath", $chat_id);
             return null;
         }
 
@@ -64,11 +64,11 @@ class TelegramService
         ]);
 
         // Debug natijani yuborish
-        if ($response->successful()) {
-            $this->sendMessageForDebug("✅ Rasm yuborildi", $chat_id);
-        } else {
-            $this->sendMessageForDebug("❌ Telegram xatosi: " . $response->body(), $chat_id);
-        }
+        // if ($response->successful()) {
+        //     $this->sendMessageForDebug("✅ Rasm yuborildi", $chat_id);
+        // } else {
+        //     $this->sendMessageForDebug("❌ Telegram xatosi: " . $response->body(), $chat_id);
+        // }
 
         return $response->json();
     }

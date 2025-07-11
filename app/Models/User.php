@@ -35,24 +35,9 @@ class User extends Authenticatable
         'certificate_style' => 'integer',
     ];
 
-    // 🔗 Aloqalar
-    public function tests()
-    {
-        return $this->hasMany(Test::class, 'author_id');
-    }
 
     public function answers()
     {
         return $this->hasMany(Answer::class);
-    }
-
-    public function results()
-    {
-        return $this->hasMany(Result::class);
-    }
-
-    public function certificates()
-    {
-        return $this->hasMany(Certificate::class);
     }
 }

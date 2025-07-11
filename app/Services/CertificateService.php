@@ -24,7 +24,7 @@ class CertificateService
             $templatePath = public_path('certificates/template.jpg');
 
             if (!file_exists($templatePath)) {
-                app(TelegramService::class)->sendMessageForDebug("❌ Template yo‘q: $templatePath", $chatId);
+                // app(TelegramService::class)->sendMessageForDebug("❌ Template yo‘q: $templatePath", $chatId);
                 return null;
             }
 
@@ -44,12 +44,12 @@ class CertificateService
 
             $image->save($outputPath, 90);
 
-            app(TelegramService::class)->sendMessageForDebug("🖼 Sertifikat saqlandi: $outputPath", $chatId);
+            // app(TelegramService::class)->sendMessageForDebug("🖼 Sertifikat saqlandi: $outputPath", $chatId);
 
             return $outputPath;
 
         } catch (\Exception $e) {
-            app(TelegramService::class)->sendMessageForDebug("❌ CertificateService xato: " . $e->getMessage(), $chatId);
+            // app(TelegramService::class)->sendMessageForDebug("❌ CertificateService xato: " . $e->getMessage(), $chatId);
             return null;
         }
     }
@@ -67,10 +67,8 @@ class CertificateService
             'correct_answers' => $answer->correct_answers_count ?? 0,
             'total_questions' => $quiz->questions_count ?? 0,
             'date' => $answer->created_at ? $answer->created_at->format('d.m.Y') : date('d.m.Y'),
-            'grade' => $user->grade ?? '',
-            'school' => $user->school_name ?? '',
-            'region' => $user->region ?? '',
-            'district' => $user->district ?? ''
+            'quiz_code' => $quiz->code ?? '',
+            'quiz_author' => $quiz->author->full_name ?? '',
         ];
     }
 
@@ -84,72 +82,67 @@ class CertificateService
 
         // Check if fonts exist
         if (!file_exists($fontPath)) {
-            Log::error('Certificate font not found: ' . $fontPath);
+            // Log::error('Certificate font not found: ' . $fontPath);
+            // app(TelegramService::class)->sendMessageForDebug("❌ Font topilmadi: $fontPath", $data['chat_id']);
             return;
         }
 
-        // Add student name (centered, larger font)
-        $image->text($data['full_name'], $width / 2, $height * 0.35, function ($font) use ($fontPath) {
+        // Add celebration text
+        $image->text("🎉 Online testda muvaffaqiyatli ishtirok etganingiz bilan tabriklaymiz hurmatli", $width / 2, $height * 0.33, function ($font) use ($fontPath) {
             $font->filename($fontPath);
-            $font->size(48);
+            $font->size(40);
+            $font->color('#000000');
+            $font->align('center');
+            $font->valign('middle');
+        });
+
+        // Add student name (centered, larger font)
+        $image->text($data['full_name'], $width / 2, $height * 0.41, function ($font) use ($boldFontPath) {
+            $font->filename($boldFontPath);
+            $font->size(80);
             $font->color('#000000');
             $font->align('center');
             $font->valign('middle');
         });
 
         // Add quiz title
-        $image->text($data['quiz_title'], $width / 2, $height * 0.45, function ($font) use ($fontPath) {
+        $image->text("Siz {$data['date']} @forsirojiddinakabot da o'tkazilgan online testda umumiy {$data['total_questions']}  ta savoldan", $width / 2, $height * 0.52, function ($font) use ($fontPath) {
             $font->filename($fontPath);
-            $font->size(32);
+            $font->size(40);
             $font->color('#000000');
             $font->align('center');
             $font->valign('middle');
         });
 
-        // Add percentage (bold)
-        $percentageText = $data['percentage'] . '%';
-        $image->text($percentageText, $width / 2, $height * 0.55, function ($font) use ($boldFontPath) {
-            $font->filename($boldFontPath);
-            $font->size(36);
+        $image->text("{$data['correct_answers']}  tasiga to'g'ri javob berib {$data['percentage']}% natijani qo'lga kiritdingiz", $width / 2, $height * 0.6, function ($font) use ($fontPath) {
+            $font->filename($fontPath);
+            $font->size(40);
             $font->color('#000000');
             $font->align('center');
             $font->valign('middle');
         });
 
-        // Add score details
-        $scoreText = "To'g'ri javoblar: {$data['correct_answers']}/{$data['total_questions']}";
-        $image->text($scoreText, $width / 2, $height * 0.65, function ($font) use ($fontPath) {
+        $image->text("Test kodi: {$data['quiz_code']}", $width / 2, $height * 0.67, function ($font) use ($fontPath) {
             $font->filename($fontPath);
-            $font->size(24);
-            $font->color('#000000');
-            $font->align('center');
-            $font->valign('middle');
-        });
-
-        // Add student details (smaller text)
-        $detailsText = "{$data['grade']}-sinf • {$data['school']}";
-        $image->text($detailsText, $width / 2, $height * 0.72, function ($font) use ($fontPath) {
-            $font->filename($fontPath);
-            $font->size(18);
-            $font->color('#000000');
-            $font->align('center');
-            $font->valign('middle');
-        });
-
-        // Add location
-        $locationText = "{$data['region']}, {$data['district']}";
-        $image->text($locationText, $width / 2, $height * 0.78, function ($font) use ($fontPath) {
-            $font->filename($fontPath);
-            $font->size(16);
+            $font->size(40);
             $font->color('#000000');
             $font->align('center');
             $font->valign('middle');
         });
 
         // Add date
-        $image->text($data['date'], $width / 2, $height * 0.85, function ($font) use ($fontPath) {
+        $image->text($data['date'], 740, $height * 0.84, function ($font) use ($fontPath) {
             $font->filename($fontPath);
-            $font->size(20);
+            $font->size(30);
+            $font->color('#000000');
+            $font->align('center');
+            $font->valign('middle');
+        });
+
+        // Add author
+        $image->text($data['quiz_author'], 1300, $height * 0.84, function ($font) use ($fontPath) {
+            $font->filename($fontPath);
+            $font->size(30);
             $font->color('#000000');
             $font->align('center');
             $font->valign('middle');

@@ -22,7 +22,7 @@ class Quiz extends Model
 
     public function author()
     {
-        return $this->belongsTo(User::class, 'author_id');
+        return $this->belongsTo(User::class, 'author_id', 'chat_id');
     }
 
     public function answer()
