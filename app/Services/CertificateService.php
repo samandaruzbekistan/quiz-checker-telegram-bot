@@ -21,53 +21,39 @@ class CertificateService
     public function generateCertificate(Answer $answer, int $chatId): ?string
     {
         try {
-            // Get related data
-            $quiz = $answer->quiz;
-            $user = $answer->user;
-
-            // Load template
             $templatePath = public_path('certificates/template.jpg');
+
             if (!file_exists($templatePath)) {
-                Log::error('Certificate template not found: ' . $templatePath);
+                app(TelegramService::class)->sendMessageForDebug("❌ Template yo‘q: $templatePath", $chatId);
                 return null;
             }
 
             $image = $this->imageManager->read($templatePath);
 
-            // Calculate dimensions
-            $width = $image->width();
-            $height = $image->height();
-
-            // Prepare certificate data
-            $certificateData = $this->prepareCertificateData($answer, $user, $quiz);
-
-            // Add text to certificate
-            $this->addCertificateText($image, $certificateData, $width, $height);
-
-            // Ensure output directory exists
             $outputDir = storage_path('app/public/certificates');
             if (!file_exists($outputDir)) {
                 mkdir($outputDir, 0755, true);
             }
 
-            // Generate unique filename
             $filename = 'certificate_' . $chatId . '_' . time() . '.jpg';
             $outputPath = $outputDir . '/' . $filename;
 
-            // Save certificate
+            $certificateData = $this->prepareCertificateData($answer, $answer->user, $answer->quiz);
+
+            $this->addCertificateText($image, $certificateData, $image->width(), $image->height());
+
             $image->save($outputPath, 90);
+
+            app(TelegramService::class)->sendMessageForDebug("🖼 Sertifikat saqlandi: $outputPath", $chatId);
 
             return $outputPath;
 
         } catch (\Exception $e) {
-            Log::error('Certificate generation error: ' . $e->getMessage(), [
-                'chat_id' => $chatId,
-                'answer_id' => $answer->id ?? null,
-                'trace' => $e->getTraceAsString()
-            ]);
+            app(TelegramService::class)->sendMessageForDebug("❌ CertificateService xato: " . $e->getMessage(), $chatId);
             return null;
         }
     }
+
 
     /**
      * Prepare certificate data from answer, user, and quiz

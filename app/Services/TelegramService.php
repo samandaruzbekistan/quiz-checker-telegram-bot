@@ -46,21 +46,33 @@ class TelegramService
         return $response->json();
     }
 
-    public function sendPhoto($photo, $chat_id, $caption = null)
+    public function sendPhoto($photoPath, $chat_id, $caption = null)
     {
-        $data = [
-            'chat_id' => $chat_id,
-            'photo' => $photo,
-        ];
-
-        if ($caption) {
-            $data['caption'] = $caption;
-            $data['parse_mode'] = 'HTML';
+        if (!file_exists($photoPath)) {
+            $this->sendMessageForDebug("❌ Fayl topilmadi: $photoPath", $chat_id);
+            return null;
         }
 
-        $response = Http::post($this->telegramBotUrl . "/sendPhoto", $data);
+        $response = Http::attach(
+            'photo',
+            file_get_contents($photoPath),
+            basename($photoPath)
+        )->post($this->telegramBotUrl . "/sendPhoto", [
+            'chat_id' => $chat_id,
+            'caption' => $caption,
+            'parse_mode' => 'HTML',
+        ]);
+
+        // Debug natijani yuborish
+        if ($response->successful()) {
+            $this->sendMessageForDebug("✅ Rasm yuborildi", $chat_id);
+        } else {
+            $this->sendMessageForDebug("❌ Telegram xatosi: " . $response->body(), $chat_id);
+        }
+
         return $response->json();
     }
+
 
     public function sendDocument($chat_id, $filePath, $caption = null)
     {
