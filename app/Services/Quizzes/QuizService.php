@@ -227,10 +227,24 @@ class QuizService
         }
 
         // Send quiz results as PDF
-        $this->sendQuizResultsAsPdf($chat_id, $quiz_code);
+        // $this->sendQuizResultsAsPdf($chat_id, $quiz_code);
+        $this->sendAnnounceResultsToAllUsers($chat_id, $quiz->id);
 
-        // Return to main menu
-        $this->handleMainMenu($chat_id);
+    }
+
+    public function sendAnnounceResultsToAllUsers($chat_id, $quiz_id)
+    {
+        $answers = $this->quizAndAnswerRepository->getAnswersByQuizIdWithoutUser($quiz_id);
+        foreach ($answers as $answer) {
+            $this->telegramService->sendMessage($answer->answer_text,$answer->chat_id);
+        }
+        $message = "Natijalar e'lon qilindi.";
+        $back_buttons = [
+            [
+                ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+            ]
+        ];
+        $this->telegramService->sendInlineKeyboard($message, $chat_id, $back_buttons);
     }
 
     public function handleTestNameInput($chat_id, $message_text, $user)

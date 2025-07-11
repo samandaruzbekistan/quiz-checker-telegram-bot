@@ -66,6 +66,11 @@ class QuizAndAnswerRepository
             ->get();
     }
 
+    public function getAnswersByQuizIdWithoutUser($quiz_id)
+    {
+        return Answer::where('quiz_id', $quiz_id)->get();
+    }
+
     public function getQuizWithAnswers($quiz_code)
     {
         return Quiz::where('code', $quiz_code)
@@ -74,4 +79,11 @@ class QuizAndAnswerRepository
             }])
             ->first();
     }
+
+    public function getAnswersByQuizCode($quiz_code)
+    {
+        return Answer::where('quiz_code', $quiz_code)->get();
+    }
+
+
 }
