@@ -5,6 +5,9 @@ namespace App\Services\Quizzes;
 use App\Repositories\QuizAndAnswerRepository;
 use App\Repositories\UserRepository;
 use App\Services\TelegramService;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Storage;
+
 
 class QuizService
 {
@@ -70,6 +73,153 @@ class QuizService
         $this->userRepository->updateUser($chat_id, [
             'page_state' => 'waiting_for_test_name',
         ]);
+    }
+
+    public function handleStatistic($chat_id)
+    {
+        $buttons = [
+            ['Statistika ma’lumotlarini olish', 'Natijalarni e’lon qilish'],
+            ['Bosh menuga qaytish ↩️']
+        ];
+        $message = "Bo'limlardan birini tanlang";
+        $this->telegramService->sendReplyKeyboard($message, $chat_id, $buttons);
+        $this->userRepository->updateUser($chat_id, [
+            'page_state' => 'waiting_for_statistic_choice',
+        ]);
+    }
+
+    public function handleStatisticData($chat_id)
+    {
+        $message = "Yaratgan testingiz kodini kiriting\nM-n: 123456";
+        $this->telegramService->sendMessage($message, $chat_id);
+        $this->userRepository->updateUser($chat_id, [
+            'page_state' => 'waiting_for_statistic_quiz_code',
+        ]);
+    }
+
+    public function handleStatisticQuizCodeInput($chat_id, $message_text)
+    {
+        $quiz_code = $message_text;
+        $quiz = $this->quizAndAnswerRepository->getQuizByCode($quiz_code);
+        if (!$quiz) {
+            $inline_keyboard = [
+                [
+                    ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                ]
+            ];
+            $this->telegramService->sendInlineKeyboard("❌ Bunday test topilmadi. Qayta urinib ko'ring.", $chat_id, $inline_keyboard);
+            return;
+        }
+        if($quiz->author_id != $chat_id){
+            $inline_keyboard = [
+                [
+                    ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                ]
+            ];
+            $this->telegramService->sendInlineKeyboard("❌ Bu test sizga tegishli emas. Qayta urinib ko'ring.", $chat_id, $inline_keyboard);
+            return;
+        }
+
+        // Send quiz results as PDF
+        $this->sendQuizResultsAsPdf($chat_id, $quiz_code);
+    }
+
+    public function sendStatisticDataInPdf($chat_id, $quiz_code)
+    {
+        $quiz = $this->quizAndAnswerRepository->getQuizByCode($quiz_code);
+        $pdfView = view('exports.statistic_data_pdf', compact('quiz'))->render();
+        $pdf = Pdf::loadHTML($pdfView);
+        $this->telegramService->sendDocument($chat_id, $pdf->output(), "📄 Sizning testlaringiz ro'yxati PDF formatida.");
+    }
+
+    public function sendQuizResultsAsPdf($chat_id, $quiz_code)
+    {
+        $quiz = $this->quizAndAnswerRepository->getQuizWithAnswers($quiz_code);
+
+        if (!$quiz) {
+            $this->telegramService->sendMessage("❌ Test topilmadi.", $chat_id);
+            return;
+        }
+
+        $answers = $quiz->answers;
+
+        // Generate PDF
+        $pdfView = view('exports.quiz_results_pdf', compact('quiz', 'answers'))->render();
+        $pdf = Pdf::loadHTML($pdfView);
+
+        $filename = "quiz_results_{$quiz_code}_{$chat_id}_" . now()->timestamp . ".pdf";
+        Storage::put("public/exports/{$filename}", $pdf->output());
+
+        $filePath = storage_path("app/public/exports/{$filename}");
+
+        // Send PDF to author
+        $this->telegramService->sendDocument($chat_id, $filePath, "📊 Test natijalari PDF formatida");
+
+        // Clean up file
+        Storage::delete("public/exports/{$filename}");
+    }
+
+    public function handleStatisticDataInput($chat_id, $message_text)
+    {
+        $message = "Yaratgan testingiz kodini kiriting";
+        $this->telegramService->sendMessage($message, $chat_id);
+        $this->userRepository->updateUser($chat_id, [
+            'page_state' => 'waiting_for_statistic_data',
+        ]);
+    }
+
+    public function handleStatisticChoice($chat_id, $message_text)
+    {
+        if ($message_text == 'Statistika ma’lumotlarini olish') {
+            $this->handleStatisticData($chat_id);
+        }
+        if ($message_text == 'Natijalarni e’lon qilish') {
+            $this->handleAnnounceResults($chat_id);
+        }
+        if ($message_text == 'Bosh menuga qaytish ↩️') {
+            $this->handleMainMenu($chat_id);
+        }
+    }
+
+    public function handleAnnounceResults($chat_id)
+    {
+        $message = "Natijalarini e'lon qilmoqchi bo'lgan testingiz kodini kiriting\nM-n: 123456";
+        $this->telegramService->sendMessage($message, $chat_id);
+        $this->userRepository->updateUser($chat_id, [
+            'page_state' => 'waiting_for_announce_quiz_code',
+        ]);
+    }
+
+    public function handleAnnounceQuizCodeInput($chat_id, $message_text)
+    {
+        $quiz_code = $message_text;
+        $quiz = $this->quizAndAnswerRepository->getQuizByCode($quiz_code);
+
+        if (!$quiz) {
+            $inline_keyboard = [
+                [
+                    ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                ]
+            ];
+            $this->telegramService->sendInlineKeyboard("❌ Bunday test topilmadi. Qayta urinib ko'ring.", $chat_id, $inline_keyboard);
+            return;
+        }
+
+        if($quiz->author_id != $chat_id){
+            $inline_keyboard = [
+                [
+                    ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                ]
+            ];
+            $this->telegramService->sendInlineKeyboard("❌ Bu test sizga tegishli emas. Qayta urinib ko'ring.", $chat_id, $inline_keyboard);
+            return;
+        }
+
+        // Send quiz results as PDF
+        $this->sendQuizResultsAsPdf($chat_id, $quiz_code);
+
+        // Return to main menu
+        $this->handleMainMenu($chat_id);
     }
 
     public function handleTestNameInput($chat_id, $message_text, $user)

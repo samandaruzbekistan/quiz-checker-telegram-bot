@@ -58,6 +58,20 @@ class QuizAndAnswerRepository
         return Quiz::where('author_id', $chat_id)->where('type', $type)->get();
     }
 
+    public function getAnswersByQuizId($quiz_id)
+    {
+        return Answer::where('quiz_id', $quiz_id)
+            ->with('user')
+            ->orderBy('percentage', 'desc')
+            ->get();
+    }
 
-
+    public function getQuizWithAnswers($quiz_code)
+    {
+        return Quiz::where('code', $quiz_code)
+            ->with(['answers' => function($query) {
+                $query->with('user')->orderBy('percentage', 'desc');
+            }])
+            ->first();
+    }
 }

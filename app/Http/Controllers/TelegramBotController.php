@@ -118,6 +118,14 @@ class TelegramBotController extends Controller
                 if ($result == 1) {
                     $this->showMainMenu($chat_id);
                 }
+            } elseif ($user && $user->page_state === 'waiting_for_statistic_choice') {
+                $this->simpleQuizService->handleStatisticChoice($chat_id, $message_text);
+            } elseif ($user && $user->page_state === 'waiting_for_announce_quiz_code') {
+                $this->simpleQuizService->handleAnnounceQuizCodeInput($chat_id, $message_text);
+            } elseif ($user && $user->page_state === 'waiting_for_statistic_quiz_code') {
+                $this->simpleQuizService->handleStatisticQuizCodeInput($chat_id, $message_text);
+            } elseif ($user && $user->page_state === 'waiting_for_statistic_data') {
+                $this->simpleQuizService->handleStatisticDataInput($chat_id, $message_text);
             }
         }
 
@@ -514,7 +522,8 @@ class TelegramBotController extends Controller
 
         $testTypesKeyboard = [
             ['📝 Oddiy test', '🔰 Fanga doir test'],
-            ['🗂️ Maxsus test', '🏠 Bosh menu']
+            ['🗂️ Maxsus test', '📈 Statistikani olish'],
+            ['🏠 Bosh menu']
         ];
 
         if ($message_id) {
@@ -621,6 +630,9 @@ class TelegramBotController extends Controller
                 break;
             case '🗂️ Maxsus test':
                 $this->simpleQuizService->handleSpecialTest($chat_id);
+                break;
+            case '📈 Statistikani olish':
+                $this->simpleQuizService->handleStatistic($chat_id);
                 break;
             case '🏠 Bosh menu':
                 $this->returnToMainMenu($chat_id);
