@@ -122,6 +122,7 @@ class QuizService
 
         // Send quiz results as PDF
         $this->sendQuizResultsAsPdf($chat_id, $quiz_code);
+
     }
 
     public function sendStatisticDataInPdf($chat_id, $quiz_code)
@@ -152,11 +153,21 @@ class QuizService
 
         $filePath = storage_path("app/public/exports/{$filename}");
 
+        $caption = "Test kodi: {$quiz_code}\n\nIshtirokchilar soni: {$answers->count()}\nSana: {$quiz->date}\nBoshlanish: {$quiz->start_time}\nTugash: {$quiz->end_time}\n\n“BigStep”  va  “Algebra va Geometriya”  kanallarimiz  kuzatib boring.Online  darslar boshlanadi. \nA’zo bo’lish uchun Batafsil 👇\nhttps://t.me/PM_XSM\nhttps://t.me/sirojiddin95";
+
         // Send PDF to author
-        $this->telegramService->sendDocument($chat_id, $filePath, "📊 Test natijalari PDF formatida");
+        $this->telegramService->sendDocument($chat_id, $filePath, $caption);
 
         // Clean up file
         Storage::delete("public/exports/{$filename}");
+
+        $message = "📊 Test natijalari PDF formatida yuborildi.";
+        $back_buttons = [
+            [
+                ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+            ]
+        ];
+        $this->telegramService->sendInlineKeyboard($message, $chat_id, $back_buttons);
     }
 
     public function handleStatisticDataInput($chat_id, $message_text)
