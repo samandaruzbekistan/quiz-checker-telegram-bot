@@ -255,4 +255,13 @@ class TelegramService
 
         return $response->json();
     }
+
+    public function deleteMessage($chat_id, $message_id)
+    {
+        $response = Http::post($this->telegramBotUrl . "/deleteMessage", [
+            'chat_id' => $chat_id,
+            'message_id' => $message_id
+        ]);
+        return $response->json();
+    }
 }

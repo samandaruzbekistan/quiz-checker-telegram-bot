@@ -272,35 +272,51 @@ class AuthService
             'page_state' => 'waiting_for_phone'
         ]);
 
-        // Edit the message to show selected language and ask for phone number
-        $this->telegramService->editMessageText(
+        // Delete the message to show selected language and ask for phone number with contact button
+        $this->telegramService->deleteMessage($chat_id, $message_id);
+
+        $contact_button = [
+            [
+                [
+                    'text' => 'Telefon raqamni yuborish',
+                    'request_contact' => true
+                ]
+            ]
+        ];
+
+        $this->telegramService->sendReplyKeyboard(
+            "✅ <b>{$selectedLabel}</b> tanlandi!\n\nPastdagi tugma orqali telefon raqamingizni yuboring:",
             $chat_id,
-            $message_id,
-            "✅ <b>{$selectedLabel}</b> tanlandi!\n\nOta-onangizning telefon raqamini kiriting (+998XXXXXXXXX):"
+            $contact_button
         );
     }
 
-    public function handlePhoneInput($chat_id, $phone_number, $user)
+    // Handle phone number in contact button
+    public function handlePhoneInput($chat_id, $message, $user)
     {
-        // Basic phone number validation
-        if (!preg_match('/^\+998[0-9]{9}$/', $phone_number)) {
-            $this->telegramService->sendMessage(
-                "❌ Noto'g'ri telefon raqam formati!\n\nIltimos, +998XXXXXXXXX formatida kiriting:",
-                $chat_id
-            );
-            return;
+        if(isset($message['contact'])){
+            $phone_number = $message['contact']['phone_number'];
+            $this->userRepository->updateUser($chat_id, [
+                'phone_number' => $phone_number,
+                'page_state' => 'waiting_for_confirmation'
+            ]);
         }
+        else{
+            $contact_button = [
+                [
+                    [
+                        'text' => 'Telefon raqamni yuborish',
+                        'request_contact' => true
+                    ]
+                ]
+            ];
 
-        // Update user's phone number
-        $this->userRepository->updateUser($chat_id, [
-            'phone_number' => $phone_number,
-            'page_state' => 'waiting_for_confirmation'
-        ]);
-
-        $user = $this->userRepository->getUserByChatId($chat_id);
-
-        // Show confirmation with all collected information
-        $this->showConfirmation($chat_id, $user);
+            $this->telegramService->sendReplyKeyboard(
+                "Iltimos pastdagi tugma orqali telefon raqamingizni yuboring:",
+                $chat_id,
+                $contact_button
+            );
+        }
     }
 
     public function showConfirmation($chat_id, $user)
