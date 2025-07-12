@@ -110,6 +110,13 @@ class AuthService
 
         $selectedLabel = $participantTypeLabels[$participant_type] ?? 'Unknown';
 
+        if($participant_type == 'teacher'){
+            $message_text = "O'qituvchi bo'lganingiz uchun faoliyat olib boradigan muassasangizni tanlang";
+        }
+        else{
+            $message_text = "O'quv muassasangizni tanlang";
+        }
+
         // Update user's participant type
         $this->userRepository->updateUser($chat_id, [
             'participant_type' => $participant_type,
@@ -140,7 +147,7 @@ class AuthService
         $this->telegramService->editMessageText(
             $chat_id,
             $message_id,
-            "✅ <b>{$selectedLabel}</b> tanlandi!\n\nO'quv muassasangizni tanlang:",
+            "✅ <b>{$selectedLabel}</b> tanlandi!\n\n" . $message_text,
             ['inline_keyboard' => $institutions]
         );
     }
@@ -165,53 +172,90 @@ class AuthService
         $this->telegramService->editMessageText(
             $chat_id,
             $message_id,
-            "✅ <b>{$selectedLabel}</b> tanlandi!\n\nO'quv muassasangizning nomini kiriting:"
+            "✅ <b>{$selectedLabel}</b> tanlandi!\n\nMuassasangizning nomini kiriting:"
         );
     }
 
     public function handleSchoolNameInput($chat_id, $school_name, $user)
     {
-        // Update the school name with the full name
-        $this->userRepository->updateUser($chat_id, [
-            'school_name' => $school_name,
-            'page_state' => 'waiting_for_grade'
-        ]);
+        if($user->participant_type == 'student'){
+            // Update the school name with the full name
+            $this->userRepository->updateUser($chat_id, [
+                'school_name' => $school_name,
+                'page_state' => 'waiting_for_grade'
+            ]);
 
-        // Create grade selection keyboard (1-11)
-        $grades = [];
-        $gradeRow = [];
+            // Create grade selection keyboard (1-11)
+            $grades = [];
+            $gradeRow = [];
 
-        for ($i = 1; $i <= 11; $i++) {
-            $gradeRow[] = [
-                'text' => (string)$i,
-                'callback_data' => 'grade_' . $i
+            for ($i = 1; $i <= 11; $i++) {
+                $gradeRow[] = [
+                    'text' => (string)$i,
+                    'callback_data' => 'grade_' . $i
+                ];
+
+                if (count($gradeRow) == 3) {
+                    $grades[] = $gradeRow;
+                    $gradeRow = [];
+                }
+            }
+
+            // Add remaining grades if any
+            if (!empty($gradeRow)) {
+                $grades[] = $gradeRow;
+            }
+
+            // Add back button
+            $grades[] = [
+                [
+                    'text' => 'Orqaga 🔙',
+                    'callback_data' => 'back_to_institution'
+                ]
             ];
 
-            if (count($gradeRow) == 3) {
-                $grades[] = $gradeRow;
-                $gradeRow = [];
-            }
+
+            // Send grade selection message
+            $this->telegramService->sendInlineKeyboard(
+                "✅ <b>{$school_name}</b> nomi saqlandi!\n\nSinfingizni tanlang:",
+                $chat_id,
+                $grades
+            );
         }
+        else{
+            // Update the school name with the full name
+            $this->userRepository->updateUser($chat_id, [
+                'school_name' => $school_name,
+                'page_state' => 'waiting_for_language'
+            ]);
 
-        // Add remaining grades if any
-        if (!empty($gradeRow)) {
-            $grades[] = $gradeRow;
+            // Create language selection keyboard
+            $languages = [
+                [
+                    [
+                        'text' => 'O\'zbek tili',
+                        'callback_data' => 'language_uz'
+                    ],
+                    [
+                        'text' => 'Rus tili',
+                        'callback_data' => 'language_ru'
+                    ]
+                ],
+                [
+                    [
+                        'text' => 'Orqaga 🔙',
+                        'callback_data' => 'back_to_grade'
+                    ]
+                ]
+            ];
+
+            // Send language selection message
+            $this->telegramService->sendInlineKeyboard(
+                "✅ <b>{$school_name}</b> nomi saqlandi!\n\nImtihon tilini tanlang:",
+                $chat_id,
+                $languages
+            );
         }
-
-        // Add back button
-        $grades[] = [
-            [
-                'text' => 'Orqaga 🔙',
-                'callback_data' => 'back_to_institution'
-            ]
-        ];
-
-        // Send grade selection message
-        $this->telegramService->sendInlineKeyboard(
-            "✅ <b>{$school_name}</b> nomi saqlandi!\n\nSinfingizni tanlang:",
-            $chat_id,
-            $grades
-        );
     }
 
     public function handleGradeSelection($chat_id, $grade, $message_id)
@@ -300,6 +344,7 @@ class AuthService
                 'phone_number' => $phone_number,
                 'page_state' => 'waiting_for_confirmation'
             ]);
+            $this->showConfirmation($chat_id, $user);
         }
         else{
             $contact_button = [

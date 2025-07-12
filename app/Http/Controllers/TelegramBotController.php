@@ -38,6 +38,7 @@ class TelegramBotController extends Controller
 
         $chat_id = $data['message']['chat']['id'] ?? null;
         $message_text = $data['message']['text'] ?? null;
+        $message = $data['message'] ?? null;
 
         if ($message_text === "/start") {
             // Check if user is already registered
@@ -83,7 +84,7 @@ class TelegramBotController extends Controller
                 $this->authService->handleSchoolNameInput($chat_id, $message_text, $user);
             } elseif ($user && $user->page_state === 'waiting_for_phone') {
                 // User is entering phone number
-                $this->authService->handlePhoneInput($chat_id, $message_text, $user);
+                $this->authService->handlePhoneInput($chat_id, $message, $user);
             } elseif ($user && $user->page_state === 'main_menu') {
                 // User is in main menu, handle menu button clicks
                 $this->handleMainMenuText($chat_id, $message_text, $user);
