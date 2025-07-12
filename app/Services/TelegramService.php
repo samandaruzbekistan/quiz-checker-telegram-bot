@@ -85,6 +85,18 @@ class TelegramService
         return $response->json();
     }
 
+    public function sendDocumentByFileId($chat_id, $fileId, $caption = null)
+    {
+        $response = Http::post($this->telegramBotUrl . "/sendDocument", [
+            'chat_id' => $chat_id,
+            'document' => $fileId,
+            'caption' => $caption,
+            'parse_mode' => 'HTML',
+        ]);
+
+        return $response->json();
+    }
+
     public function sendTextWithButtons($message, $chat_id, $buttons)
     {
         $response = Http::post($this->telegramBotUrl . "/sendMessage", [

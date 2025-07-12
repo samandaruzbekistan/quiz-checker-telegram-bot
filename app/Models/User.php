@@ -28,6 +28,11 @@ class User extends Authenticatable
         'education_institution',
         'certificate_style',
         'page_state',
+        'active_quiz_id',
+        'temp_pdf_test_name',
+        'temp_pdf_test_file_id',
+        'temp_pdf_test_questions_count',
+        'active_pdf_test_id',
     ];
 
     protected $casts = [

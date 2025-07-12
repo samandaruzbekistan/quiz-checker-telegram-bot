@@ -10,6 +10,7 @@ use App\Services\Auth\AuthService;
 use App\Services\Quizzes\QuizService;
 use App\Services\Quizzes\QuizResultService;
 use App\Services\CertificateService;
+use App\Services\PdfTestService;
 
 class TelegramBotController extends Controller
 {
@@ -20,7 +21,8 @@ class TelegramBotController extends Controller
         protected AuthService $authService,
         protected QuizService $simpleQuizService,
         protected QuizResultService $quizResultService,
-        protected CertificateService $certificateService
+        protected CertificateService $certificateService,
+        protected PdfTestService $pdfTestService
         )
     {
     }
@@ -39,6 +41,7 @@ class TelegramBotController extends Controller
         $chat_id = $data['message']['chat']['id'] ?? null;
         $message_text = $data['message']['text'] ?? null;
         $message = $data['message'] ?? null;
+        $document = $data['message']['document'] ?? null;
 
         if ($message_text === "/start") {
             // Check if user is already registered
@@ -153,6 +156,14 @@ class TelegramBotController extends Controller
                 $this->simpleQuizService->handleStatisticDataInput($chat_id, $message_text);
             } elseif ($user && $user->page_state === 'waiting_for_certificate_code') {
                 $this->handleCertificateCodeInput($chat_id, $message_text);
+            } elseif ($user && $user->page_state === 'waiting_for_pdf_test_name') {
+                $this->pdfTestService->handlePdfTestNameInput($chat_id, $message_text);
+            } elseif ($user && $user->page_state === 'waiting_for_pdf_test_questions_count') {
+                $this->pdfTestService->handlePdfTestQuestionsCountInput($chat_id, $message_text);
+            } elseif ($user && $user->page_state === 'waiting_for_pdf_test_answers') {
+                $this->pdfTestService->handlePdfTestAnswersInput($chat_id, $message_text);
+            } elseif ($user && $user->page_state === 'waiting_for_pdf_test_file' && $document) {
+                $this->pdfTestService->handlePdfTestFileInput($chat_id, $document);
             }
         }
 
@@ -222,11 +233,25 @@ class TelegramBotController extends Controller
             $this->handleRestartRegistration($chat_id, $message_id);
         }
 
+        // Handle PDF test callbacks
+        if ($callback_data === 'add_pdf_test') {
+            $this->pdfTestService->handleAddPdfTest($chat_id);
+        }
+
+        if (str_starts_with($callback_data, 'pdf_test_')) {
+            $test_id = str_replace('pdf_test_', '', $callback_data);
+            $this->pdfTestService->handlePdfTestSelection($chat_id, $test_id);
+        }
+
+        if ($callback_data === 'back_to_tests_menu') {
+            $this->pdfTestService->handleTestsSection($chat_id);
+        }
+
         // Handle back to main menu
         if ($callback_data === 'back_to_main_menu') {
             $this->showMainMenu($chat_id, $message_id);
 
-            // javobni ko‘rsatish uchun
+            // javobni ko'rsatish uchun
             $this->telegramService->answerCallbackQuery($callback_query_id);
             return;
         }
@@ -569,8 +594,7 @@ class TelegramBotController extends Controller
                 $this->handleCertificates($chat_id, null); // No message_id for new message
                 break;
             case '🔸 Testlar':
-                $this->quizResultService->handleMyQuizzes($chat_id);
-                $this->showMainMenu($chat_id);
+                $this->pdfTestService->handleTestsSection($chat_id);
                 break;
             case '⚙️ Profil sozlamalari':
                 $this->handleProfileSettings($chat_id, null); // No message_id for new message

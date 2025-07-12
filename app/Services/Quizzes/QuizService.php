@@ -187,9 +187,9 @@ class QuizService
         if ($message_text == 'Natijalarni e’lon qilish') {
             $this->handleAnnounceResults($chat_id);
         }
-        if ($message_text == 'Bosh menuga qaytish ↩️') {
-            $this->handleMainMenu($chat_id);
-        }
+        // if ($message_text == 'Bosh menuga qaytish ↩️') {
+        //     $this->handleMainMenu($chat_id);
+        // }
     }
 
     public function handleAnnounceResults($chat_id)

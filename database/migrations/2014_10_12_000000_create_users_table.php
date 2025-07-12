@@ -36,6 +36,12 @@ return new class extends Migration
 
             $table->string('active_quiz_id')->nullable();
 
+            // Temporary PDF test data
+            $table->string('temp_pdf_test_name')->nullable();
+            $table->string('temp_pdf_test_file_id')->nullable();
+            $table->integer('temp_pdf_test_questions_count')->nullable();
+            $table->unsignedBigInteger('active_pdf_test_id')->nullable();
+
             $table->timestamps();
         });
     }
