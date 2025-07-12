@@ -530,7 +530,7 @@ class TelegramBotController extends Controller
 
         $mainMenuKeyboard = [
             ['📝 Test yaratish', '✅ Javoblarni tekshirish'],
-            ['🏆 Sertifikatlar', '🔸 Testlarim'],
+            ['🏆 Sertifikatlar', '🔸 Testlar'],
             ['⚙️ Profil sozlamalari', '📚 Kitoblar']
         ];
 
@@ -568,8 +568,9 @@ class TelegramBotController extends Controller
             case '🏆 Sertifikatlar':
                 $this->handleCertificates($chat_id, null); // No message_id for new message
                 break;
-            case '🔸 Testlarim':
+            case '🔸 Testlar':
                 $this->quizResultService->handleMyQuizzes($chat_id);
+                $this->showMainMenu($chat_id);
                 break;
             case '⚙️ Profil sozlamalari':
                 $this->handleProfileSettings($chat_id, null); // No message_id for new message

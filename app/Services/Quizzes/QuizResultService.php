@@ -176,16 +176,13 @@ class QuizResultService
 
     public function handleMyQuizzes($chat_id)
     {
-        $message = "🗂️ <b>Test bo'limini tanlang</b>\n";
-        $testTypesKeyboard = [
-            ['📝 Oddiy test', '🔰 Fanga doir test', '🗂️ Maxsus test'],
-            ['🗂️ Maxsus test', '🏠 Bosh menu']
-        ];
-        $this->telegramService->sendReplyKeyboard($message, $chat_id, $testTypesKeyboard);
+        $message = "🗂️ <b>Testlar</b> bo'limi hali ishga tushirilmagan";
 
-        $this->userRepository->updateUser($chat_id, [
-            'page_state' => 'waiting_for_test_type_in_my_quizzes',
-        ]);
+        $this->telegramService->sendMessage($message, $chat_id);
+
+        // $this->userRepository->updateUser($chat_id, [
+        //     'page_state' => 'waiting_for_test_type_in_my_quizzes',
+        // ]);
     }
 
     public function handleTestTypeSelection($chat_id, $message_text, $user)
