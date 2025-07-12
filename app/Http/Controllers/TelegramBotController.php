@@ -67,10 +67,14 @@ class TelegramBotController extends Controller
                     'page_state' => 'waiting_for_name',
                     'username' => $data['message']['from']['username'] ?? null,
                 ]);
+
                 $this->telegramService->sendMessage("Salom, botga xush kelibsiz! F.I.O ni kiriting (Lotin harflarida)", $chat_id);
+
             } else {
                 $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_name']);
+
                 $this->telegramService->sendMessage("Salom, botga xush kelibsiz! F.I.O ni kiriting (Lotin harflarida)", $chat_id);
+
             }
         } else {
             // Handle other messages based on user's current state
@@ -78,13 +82,33 @@ class TelegramBotController extends Controller
 
             if ($user && $user->page_state === 'waiting_for_name') {
                 // User is entering their name
-                $this->authService->handleNameInput($chat_id, $message_text);
+                if ($message_text === 'Orqaga 🔙') {
+                    // Go back to start - show subscription message again
+                    $subscriptionStatus = $this->telegramService->checkChannelSubscription($chat_id);
+                    if (!$subscriptionStatus['is_subscribed']) {
+                        $this->telegramService->sendSubscriptionMessage($chat_id, $subscriptionStatus['unsubscribed_channels']);
+                    }
+                } else {
+                    $this->authService->handleNameInput($chat_id, $message_text);
+                }
             } elseif ($user && $user->page_state === 'waiting_for_school_name') {
                 // User is entering school name
-                $this->authService->handleSchoolNameInput($chat_id, $message_text, $user);
+                if ($message_text === 'Orqaga 🔙') {
+                    // Go back to institution selection
+                    $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_institution']);
+                    $this->showInstitutionSelection($chat_id, null);
+                } else {
+                    $this->authService->handleSchoolNameInput($chat_id, $message_text, $user);
+                }
             } elseif ($user && $user->page_state === 'waiting_for_phone') {
                 // User is entering phone number
-                $this->authService->handlePhoneInput($chat_id, $message, $user);
+                if ($message_text === 'Orqaga 🔙') {
+                    // Go back to language selection
+                    $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_language']);
+                    $this->showLanguageSelection($chat_id, null);
+                } else {
+                    $this->authService->handlePhoneInput($chat_id, $message, $user);
+                }
             } elseif ($user && $user->page_state === 'main_menu') {
                 // User is in main menu, handle menu button clicks
                 $this->handleMainMenuText($chat_id, $message_text, $user);
@@ -236,8 +260,9 @@ class TelegramBotController extends Controller
                 $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_name']);
             }
 
-            // Send name input request
             $this->telegramService->sendMessage("F.I.O ni kiriting (Lotin harflarida)", $chat_id);
+
+
         } else {
             // User is still not subscribed to all channels
             $this->telegramService->answerCallbackQuery(
@@ -253,6 +278,58 @@ class TelegramBotController extends Controller
         if (!$user) return;
 
         switch ($callback_data) {
+            case 'back_to_name':
+                // Go back to name input
+                $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_name']);
+                $this->telegramService->editMessageText(
+                    $chat_id,
+                    $message_id,
+                    "Iltimos, to'liq ismingizni kiriting (Lotin harflarida):"
+                );
+                break;
+
+            case 'back_to_region':
+                // Go back to region selection
+                $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_region']);
+                $regions = \App\Models\Region::getFormattedForKeyboard();
+                $regions[] = [
+                    [
+                        'text' => 'Orqaga 🔙',
+                        'callback_data' => 'back_to_name'
+                    ]
+                ];
+                $this->telegramService->editMessageText(
+                    $chat_id,
+                    $message_id,
+                    "Viloyatingizni tanlang:",
+                    ['inline_keyboard' => $regions]
+                );
+                break;
+
+            case 'back_to_district':
+                // Go back to district selection
+                $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_district']);
+                $districts = \App\Models\District::getFormattedForKeyboard($user->region);
+                $districts[] = [
+                    [
+                        'text' => 'Orqaga 🔙',
+                        'callback_data' => 'back_to_region'
+                    ]
+                ];
+                $this->telegramService->editMessageText(
+                    $chat_id,
+                    $message_id,
+                    "Tumaningizni tanlang:",
+                    ['inline_keyboard' => $districts]
+                );
+                break;
+
+            case 'back_to_participant_type':
+                // Go back to participant type selection
+                $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_participant_type']);
+                $this->showParticipantTypeSelection($chat_id, $message_id, $user->district);
+                break;
+
             case 'back_to_institution':
                 // Go back to institution selection
                 $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_institution']);
@@ -269,18 +346,6 @@ class TelegramBotController extends Controller
                 // Go back to language selection
                 $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_language']);
                 $this->showLanguageSelection($chat_id, $message_id, $user->grade);
-                break;
-
-            case 'back_to_participant_type':
-                // Go back to participant type selection
-                $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_participant_type']);
-                $this->showParticipantTypeSelection($chat_id, $message_id, $user->district);
-                break;
-
-            case 'back_to_district':
-                // Go back to district selection
-                $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_district']);
-                $this->showDistrictSelection($chat_id, $message_id, $user->region);
                 break;
         }
     }

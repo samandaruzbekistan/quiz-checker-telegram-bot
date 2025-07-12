@@ -27,6 +27,7 @@ class User extends Authenticatable
         'is_subscribed',
         'education_institution',
         'certificate_style',
+        'page_state',
     ];
 
     protected $casts = [

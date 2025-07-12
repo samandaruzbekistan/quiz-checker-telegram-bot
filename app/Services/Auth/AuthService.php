@@ -28,6 +28,15 @@ class AuthService
 
         // Get regions and send inline keyboard
         $regions = Region::getFormattedForKeyboard();
+
+        // Add back button to regions keyboard
+        $regions[] = [
+            [
+                'text' => 'Orqaga 🔙',
+                'callback_data' => 'back_to_name'
+            ]
+        ];
+
         $this->telegramService->sendInlineKeyboard(
             "Viloyatingizni tanlang:",
             $chat_id,
@@ -87,6 +96,12 @@ class AuthService
                         'text' => 'Boshqa ishtirokchi',
                         'callback_data' => 'participant_other'
                     ]
+                ],
+                [
+                    [
+                        'text' => 'Orqaga 🔙',
+                        'callback_data' => 'back_to_region'
+                    ]
                 ]
             ];
 
@@ -140,6 +155,12 @@ class AuthService
                     'text' => 'Oliy ta\'lim',
                     'callback_data' => 'institution_higher_education'
                 ]
+            ],
+            [
+                [
+                    'text' => 'Orqaga 🔙',
+                    'callback_data' => 'back_to_district'
+                ]
             ]
         ];
 
@@ -168,11 +189,22 @@ class AuthService
             'page_state' => 'waiting_for_school_name'
         ]);
 
+        // Create back button for school name input
+        $backKeyboard = [
+            [
+                [
+                    'text' => 'Orqaga 🔙',
+                    'callback_data' => 'back_to_participant_type'
+                ]
+            ]
+        ];
+
         // Edit the message to show selected institution and ask for school name
         $this->telegramService->editMessageText(
             $chat_id,
             $message_id,
-            "✅ <b>{$selectedLabel}</b> tanlandi!\n\nMuassasangizning nomini kiriting:"
+            "✅ <b>{$selectedLabel}</b> tanlandi!\n\nMuassasangizning nomini kiriting:",
+            ['inline_keyboard' => $backKeyboard]
         );
     }
 
@@ -244,7 +276,7 @@ class AuthService
                 [
                     [
                         'text' => 'Orqaga 🔙',
-                        'callback_data' => 'back_to_grade'
+                        'callback_data' => 'back_to_institution'
                     ]
                 ]
             ];
@@ -352,6 +384,11 @@ class AuthService
                     [
                         'text' => 'Telefon raqamni yuborish',
                         'request_contact' => true
+                    ]
+                ],
+                [
+                    [
+                        'text' => 'Orqaga 🔙'
                     ]
                 ]
             ];
