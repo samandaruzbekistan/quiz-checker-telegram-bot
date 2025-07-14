@@ -442,7 +442,7 @@ class TelegramBotController extends Controller
         );
     }
 
-    private function showLanguageSelection($chat_id, $message_id, $grade)
+    public function showLanguageSelection($chat_id, $message_id, $grade)
     {
         $languages = [
             [
