@@ -218,7 +218,18 @@ class TelegramBotController extends Controller
             $this->authService->handleLanguageSelection($chat_id, $language, $message_id);
         }
 
-        // Handle back buttons
+        // Handle PDF test callbacks
+        if ($callback_data === 'add_pdf_test') {
+            $this->pdfTestService->handleAddPdfTest($chat_id);
+        }
+
+        if (str_starts_with($callback_data, 'pdf_test_')) {
+            // $this->telegramService->sendMessageForDebug($callback_data);
+            $test_id = str_replace('pdf_test_', '', $callback_data);
+            $this->pdfTestService->handlePdfTestSelection($chat_id, $test_id);
+        }
+
+        // Handle back buttons (after specific PDF test callbacks)
         if (str_starts_with($callback_data, 'back_to_')) {
             $this->handleBackButton($chat_id, $callback_data, $message_id);
         }
@@ -231,20 +242,6 @@ class TelegramBotController extends Controller
         // Handle restart registration
         if ($callback_data === 'restart_registration') {
             $this->handleRestartRegistration($chat_id, $message_id);
-        }
-
-        // Handle PDF test callbacks
-        if ($callback_data === 'add_pdf_test') {
-            $this->pdfTestService->handleAddPdfTest($chat_id);
-        }
-
-        if (str_starts_with($callback_data, 'pdf_test_')) {
-            $test_id = str_replace('pdf_test_', '', $callback_data);
-            $this->pdfTestService->handlePdfTestSelection($chat_id, $test_id);
-        }
-
-        if ($callback_data === 'back_to_tests_menu') {
-            $this->pdfTestService->handleTestsSection($chat_id);
         }
 
         // Handle back to main menu

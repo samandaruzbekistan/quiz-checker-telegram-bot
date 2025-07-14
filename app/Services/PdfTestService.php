@@ -315,11 +315,13 @@ class PdfTestService
         }
 
         // Check if user already took this test
-        $existingResult = $this->pdfTestRepository->getUserResultByPdfTestId($testId, $chatId);
-        if ($existingResult) {
-            $this->showPdfTestResult($chatId, $existingResult);
-            return;
-        }
+        // $existingResult = $this->pdfTestRepository->getUserResultByPdfTestId($testId, $chatId);
+        // if ($existingResult) {
+        //     $this->showPdfTestResult($chatId, $existingResult);
+        //     return;
+        // }
+
+        // $this->telegramService->sendMessageForDebug($pdfTest);
 
         // Send PDF file
         $caption = "📚 <b>{$pdfTest->name}</b>\n\n";
