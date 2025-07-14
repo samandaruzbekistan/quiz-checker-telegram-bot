@@ -256,9 +256,61 @@ class QuizService
         $quiz->save();
 
         $this->telegramService->sendMessage("Savollar sonini kiriting.\nM-n: 15", $chat_id);
-
         $this->userRepository->updateUser($chat_id, [
             'page_state' => 'waiting_for_question_count',
+        ]);
+    }
+
+    public function handleCertificationChoice($chat_id, $message_text, $user)
+    {
+        $quiz = $this->quizAndAnswerRepository->getDraftQuizByUserId($chat_id);
+        if (!$quiz) return;
+
+        if ($message_text === '✅ Sertifikatli') {
+            $quiz->certification = true;
+        } elseif ($message_text === '❌ Sertifikatsiz') {
+            $quiz->certification = false;
+        } else {
+            $this->telegramService->sendMessage("Iltimos, quyidagi tugmalardan birini tanlang.", $chat_id);
+            return;
+        }
+        $quiz->save();
+
+        // Ask if results should be sent automatically or by admin
+        $resultSendKeyboard = [
+            ['📤 Avtomatik yuborilsin', '👤 Admin yuborsin']
+        ];
+        $this->telegramService->sendReplyKeyboard(
+            "Natijalar qanday yuborilsin?",
+            $chat_id,
+            $resultSendKeyboard
+        );
+        $this->userRepository->updateUser($chat_id, [
+            'page_state' => 'waiting_for_result_send_choice',
+        ]);
+    }
+
+    public function handleResultSendChoice($chat_id, $message_text, $user)
+    {
+        $quiz = $this->quizAndAnswerRepository->getDraftQuizByUserId($chat_id);
+        if (!$quiz) return;
+
+        if ($message_text === '📤 Avtomatik yuborilsin') {
+            $quiz->send_result_auto = true;
+        } elseif ($message_text === '👤 Admin yuborsin') {
+            $quiz->send_result_auto = false;
+        } else {
+            $this->telegramService->sendMessage("Iltimos, quyidagi tugmalardan birini tanlang.", $chat_id);
+            return;
+        }
+        $quiz->save();
+
+        $now_date = now()->format('d.m.Y');
+
+        // Continue to test date
+        $this->telegramService->sendMessageRemoveKeyboard("📅 Test o‘tkaziladigan sanani kiriting:\nMasalan: {$now_date}", $chat_id);
+        $this->userRepository->updateUser($chat_id, [
+            'page_state' => 'waiting_for_test_date',
         ]);
     }
 
@@ -282,7 +334,7 @@ class QuizService
             'page_state' => 'waiting_for_question_count',
         ]);
 
-        $this->telegramService->sendMessage($message, $chat_id);
+        $this->telegramService->sendMessageRemoveKeyboard($message, $chat_id);
     }
 
     public function handleQuestionCountInput($chat_id, $message_text, $user)
@@ -298,10 +350,17 @@ class QuizService
         $quiz->questions_count = intval($message_text);
         $quiz->save();
 
-        $this->telegramService->sendMessage("📅 Test o‘tkaziladigan sanani kiriting:\nMasalan: 12.05.2025", $chat_id);
-
+        // Ask if the test should be certified
+        $certificationKeyboard = [
+            ['✅ Sertifikatli', '❌ Sertifikatsiz']
+        ];
+        $this->telegramService->sendReplyKeyboard(
+            "Test sertifikatli bo'lsinmi yoki yo'qmi?",
+            $chat_id,
+            $certificationKeyboard
+        );
         $this->userRepository->updateUser($chat_id, [
-            'page_state' => 'waiting_for_test_date',
+            'page_state' => 'waiting_for_certification_choice',
         ]);
     }
 
@@ -410,14 +469,14 @@ class QuizService
         $answers = strtolower(trim($message_text)); // kichik harflarga o‘tkazish
 
         // Validatsiya: faqat a,b,c,d harflari, va soni to‘g‘ri bo‘lishi kerak
-        if (!preg_match('/^[abcd]+$/', $answers)) {
-            $this->telegramService->sendMessage("❌ Javoblar faqat a, b, c, d harflaridan iborat bo‘lishi kerak. Iltimos, qayta kiriting.", $chat_id);
-            return;
+        if (!preg_match('/^[a-z]+$/', $answers)) {
+            $this->telegramService->sendMessage("❌ Javoblar faqat harflaridan iborat bo‘lishi kerak. Iltimos, qayta kiriting.", $chat_id);
+            return 0;
         }
 
         if (strlen($message_text) != $questionCount) {
             $this->telegramService->sendMessage("❌ Javoblar soni testdagi savollar soniga teng emas. Kutilgan: $questionCount ta javob.", $chat_id);
-            return;
+            return 0;
         }
 
         // Generate unique code
@@ -450,5 +509,7 @@ class QuizService
         $this->userRepository->updateUser($chat_id, [
             'page_state' => 'main_menu',
         ]);
+
+        return 1;
     }
 }

@@ -24,6 +24,8 @@ return new class extends Migration
             $table->string('start_time')->nullable();
             $table->string('end_time')->nullable();
             $table->string('date')->nullable();
+            $table->boolean('certification')->default(false);
+            $table->boolean('send_result_auto')->default(false);
             $table->enum('status', ['draft', 'published', 'archived'])->default('draft');
             $table->timestamps();
         });

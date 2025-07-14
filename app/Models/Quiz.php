@@ -18,6 +18,13 @@ class Quiz extends Model
         'date',
         'type',
         'questions_count',
+        'certification',
+        'send_result_auto',
+    ];
+
+    protected $casts = [
+        'certification' => 'boolean',
+        'send_result_auto' => 'boolean',
     ];
 
     public function author()

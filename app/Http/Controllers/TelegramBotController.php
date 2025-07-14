@@ -119,8 +119,11 @@ class TelegramBotController extends Controller
                 // User is selecting test type
                 $this->handleTestTypeSelection($chat_id, $message_text, $user);
             } elseif ($user && $user->page_state === 'waiting_for_test_name') {
-                // User is entering test name
                 $this->simpleQuizService->handleTestNameInput($chat_id, $message_text, $user);
+            } elseif ($user && $user->page_state === 'waiting_for_certification_choice') {
+                $this->simpleQuizService->handleCertificationChoice($chat_id, $message_text, $user);
+            } elseif ($user && $user->page_state === 'waiting_for_result_send_choice') {
+                $this->simpleQuizService->handleResultSendChoice($chat_id, $message_text, $user);
             } elseif ($user && $user->page_state === 'waiting_for_question_count') {
                 // User is entering question count
                 $this->simpleQuizService->handleQuestionCountInput($chat_id, $message_text, $user);
@@ -135,8 +138,10 @@ class TelegramBotController extends Controller
                 $this->simpleQuizService->handleEndTimeInput($chat_id, $message_text, $user);
             } elseif ($user && $user->page_state === 'waiting_for_answer') {
                 // User is entering answer
-                $this->simpleQuizService->handleAnswerInput($chat_id, $message_text, $user);
-                $this->showMainMenu($chat_id);
+                $result=$this->simpleQuizService->handleAnswerInput($chat_id, $message_text, $user);
+                if ($result == 1) {
+                    $this->showMainMenu($chat_id);
+                }
             } elseif ($user && $user->page_state === 'waiting_for_subject_name') {
                 $this->simpleQuizService->handleTestSubjectNameInput($chat_id, $message_text, $user);
             } elseif ($user && $user->page_state === 'waiting_for_test_code_in_check_answers') {
@@ -645,23 +650,23 @@ class TelegramBotController extends Controller
     private function handleCertificateCodeInput($chat_id, $message_text)
     {
         $quiz_code = $message_text;
-        // $this->telegramService->sendMessageForDebug("📨 Foydalanuvchi yubordi: $quiz_code");
-
         $quiz = $this->quizAndAnswerRepository->getQuizByCode($quiz_code);
         if (!$quiz) {
             $this->telegramService->sendMessage("❌ Bunday test topilmadi. Qayta urinib ko'ring.", $chat_id);
             return;
         }
 
-        // $this->telegramService->sendMessageForDebug("✅ Test topildi: ID={$quiz->id}");
+        // Check if the quiz is certified
+        if (!$quiz->certification) {
+            $this->telegramService->sendMessage("❌ Ushbu test uchun sertifikat mavjud emas.", $chat_id);
+            return;
+        }
 
         $answer = $this->quizAndAnswerRepository->getAnswerByQuizIdAndUserChatId($quiz->id, $chat_id);
         if (!$answer) {
             $this->telegramService->sendMessage("❌ Bunday test natijasi topilmadi. Qayta urinib ko'ring.", $chat_id);
             return;
         }
-
-        // $this->telegramService->sendMessageForDebug("✅ Answer topildi: ID={$answer->id}");
 
         $this->sendCertificateAsJpg($chat_id, $answer);
     }

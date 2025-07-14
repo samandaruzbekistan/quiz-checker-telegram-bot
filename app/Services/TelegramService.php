@@ -46,6 +46,21 @@ class TelegramService
         return $response->json();
     }
 
+    public function sendMessageRemoveKeyboard($message, $chat_id)
+    {
+        $response = Http::post($this->telegramBotUrl . "/sendMessage", [
+            'chat_id' => $chat_id,
+            'text' => $message,
+            'parse_mode' => 'HTML',
+            'reply_markup' => json_encode([
+                'remove_keyboard' => true
+            ]),
+        ]);
+
+        return $response->json();
+    }
+
+
     public function sendPhoto($photoPath, $chat_id, $caption = null)
     {
         if (!file_exists($photoPath)) {

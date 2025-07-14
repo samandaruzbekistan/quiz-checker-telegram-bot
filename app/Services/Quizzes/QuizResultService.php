@@ -109,10 +109,10 @@ class QuizResultService
         }
 
         // Javobni faqat harflar yoki raqam-harf ko‘rinishida qabul qilamiz
-        $message_text = strtolower(preg_replace('/[^a-d]/i', '', $message_text));
+        $message_text = strtolower(preg_replace('/[^a-z]/i', '', $message_text));
 
-        if (!preg_match('/^[a-d]+$/', $message_text)) {
-            $this->telegramService->sendMessage("❌ Noto‘g‘ri format! Faqat a, b, c, d harflaridan foydalaning.\nMasalan: abcdabcdab yoki 1a2b3c4d", $chat_id);
+        if (!preg_match('/^[a-z]+$/', $message_text)) {
+            $this->telegramService->sendMessage("❌ Noto‘g‘ri format! Faqat harflaridan foydalaning.\nMasalan: abcdabcdab yoki 1a2b3c4d", $chat_id);
             return 0;
         }
 
