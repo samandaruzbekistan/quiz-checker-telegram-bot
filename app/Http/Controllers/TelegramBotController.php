@@ -108,7 +108,7 @@ class TelegramBotController extends Controller
                 if ($message_text === 'Orqaga 🔙') {
                     // Go back to language selection
                     $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_language']);
-                    $this->showLanguageSelection($chat_id, null);
+                    $this->showLanguageSelection($chat_id, null, $user->grade);
                 } else {
                     $this->authService->handlePhoneInput($chat_id, $message, $user);
                 }
@@ -121,12 +121,25 @@ class TelegramBotController extends Controller
             } elseif ($user && $user->page_state === 'waiting_for_test_name') {
                 $this->simpleQuizService->handleTestNameInput($chat_id, $message_text, $user);
             } elseif ($user && $user->page_state === 'waiting_for_certification_choice') {
-                $this->simpleQuizService->handleCertificationChoice($chat_id, $message_text, $user);
+                if($message_text == "Orqaga 🔙"){
+                    $this->userRepository->updateUser($chat_id, [
+                        'page_state' => 'waiting_for_question_count'
+                    ]);
+                    $this->simpleQuizService->handleQuestionCountInput($chat_id, $message_text, $user);
+                }
+                else{
+                    $this->simpleQuizService->handleCertificationChoice($chat_id, $message_text, $user);
+                }
             } elseif ($user && $user->page_state === 'waiting_for_result_send_choice') {
                 $this->simpleQuizService->handleResultSendChoice($chat_id, $message_text, $user);
             } elseif ($user && $user->page_state === 'waiting_for_question_count') {
-                // User is entering question count
-                $this->simpleQuizService->handleQuestionCountInput($chat_id, $message_text, $user);
+                if($message_text == 'Orqaga 🔙'){
+                    $this->showMainMenu($chat_id);
+                }
+                else{
+                    // User is entering question count
+                    $this->simpleQuizService->handleQuestionCountInput($chat_id, $message_text, $user);
+                }
             } elseif ($user && $user->page_state === 'waiting_for_test_date') {
                 // User is entering test date
                 $this->simpleQuizService->handleTestDateInput($chat_id, $message_text, $user);

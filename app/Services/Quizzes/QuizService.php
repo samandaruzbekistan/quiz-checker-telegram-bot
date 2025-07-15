@@ -25,8 +25,14 @@ class QuizService
             $this->quizAndAnswerRepository->deleteQuiz($draftQuiz->id);
         }
 
+        $back_inline_keyboard = [
+            [
+                ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+            ]
+        ];
+
         $message = "🗂️ <b>Fanga doir test yaratish</b>\nFan nomini kiriting\nM-n: Matematika";
-        $this->telegramService->sendMessage($message, $chat_id);
+        $this->telegramService->sendInlineKeyboard($message, $chat_id, $back_inline_keyboard);
 
         $this->quizAndAnswerRepository->createQuiz([
             'author_id' => $chat_id,
@@ -334,7 +340,13 @@ class QuizService
             'page_state' => 'waiting_for_question_count',
         ]);
 
-        $this->telegramService->sendMessageRemoveKeyboard($message, $chat_id);
+        $back_buttons = [
+            [
+                'Orqaga 🔙'
+            ]
+        ];
+
+        $this->telegramService->sendReplyKeyboard($message, $chat_id, $back_buttons);
     }
 
     public function handleQuestionCountInput($chat_id, $message_text, $user)
@@ -352,7 +364,8 @@ class QuizService
 
         // Ask if the test should be certified
         $certificationKeyboard = [
-            ['✅ Sertifikatli', '❌ Sertifikatsiz']
+            ['✅ Sertifikatli', '❌ Sertifikatsiz'],
+            ['Orqaga 🔙']
         ];
         $this->telegramService->sendReplyKeyboard(
             "Test sertifikatli bo'lsinmi yoki yo'qmi?",

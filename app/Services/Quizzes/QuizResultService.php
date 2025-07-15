@@ -162,7 +162,18 @@ class QuizResultService
 
         $this->quizAndAnswerRepository->createAnswer($inserted_data);
 
-        $this->telegramService->sendMessage("Javobingiz qabul qilindi. Natijangiz tez orada e'lon qilinadi.", $chat_id);
+        if ($quiz->send_result_auto) {
+            $this->telegramService->sendMessage($resultMessage1, $chat_id);
+            if ($quiz->certification) {
+                $certificatePath = app(\App\Services\CertificateService::class)->generateCertificate((object)array_merge($inserted_data, ['quiz' => $quiz, 'user' => $user]), $chat_id);
+                if ($certificatePath) {
+                    $this->telegramService->sendPhoto($certificatePath, $chat_id, "🏆 Sertifikatingiz tayyor!");
+                    app(\App\Services\CertificateService::class)->cleanupCertificate($certificatePath);
+                }
+            }
+        }else{
+            $this->telegramService->sendMessage("Javobingiz qabul qilindi. Natijangiz tez orada e'lon qilinadi.", $chat_id);
+        }
 
         // User state ni tozalash
         $this->userRepository->updateUser($chat_id, [

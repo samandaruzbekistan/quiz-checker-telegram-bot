@@ -135,7 +135,8 @@ class TelegramService
             'text' => $message,
             'parse_mode' => 'HTML',
             'reply_markup' => json_encode([
-                'inline_keyboard' => $inlineKeyboard
+                'inline_keyboard' => $inlineKeyboard,
+                'remove_keyboard' => true
             ])
         ]);
 
