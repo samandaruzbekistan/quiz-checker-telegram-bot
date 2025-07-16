@@ -4,6 +4,7 @@ namespace App\Services\Quizzes;
 
 use App\Repositories\QuizAndAnswerRepository;
 use App\Repositories\UserRepository;
+use App\Services\CertificateService;
 use App\Services\TelegramService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
@@ -14,7 +15,8 @@ class QuizService
     public function __construct(
         protected QuizAndAnswerRepository $quizAndAnswerRepository,
         protected TelegramService $telegramService,
-        protected UserRepository $userRepository
+        protected UserRepository $userRepository,
+        protected CertificateService $certificateService
     )
     {
     }
@@ -103,7 +105,7 @@ class QuizService
     public function handleStatisticData($chat_id)
     {
         $message = "Yaratgan testingiz kodini kiriting\nM-n: 123456";
-        $this->telegramService->sendMessage($message, $chat_id);
+        $this->telegramService->sendMessageRemoveKeyboard($message, $chat_id);
         $this->userRepository->updateUser($chat_id, [
             'page_state' => 'waiting_for_statistic_quiz_code',
         ]);
@@ -206,8 +208,15 @@ class QuizService
 
     public function handleAnnounceResults($chat_id)
     {
-        $message = "Natijalarini e'lon qilmoqchi bo'lgan testingiz kodini kiriting\nM-n: 123456";
-        $this->telegramService->sendMessage($message, $chat_id);
+        $inline_keyboard = [
+            [
+                ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+            ]
+        ];
+        $message = "Natijalarini e'lon qilmoqchi bo'lgan testingiz kodini kiriting";
+        $this->telegramService->sendMessageRemoveKeyboard($message, $chat_id);
+        $message = "M-n: 123456";
+        $this->telegramService->sendInlineKeyboard($message, $chat_id, $inline_keyboard);
         $this->userRepository->updateUser($chat_id, [
             'page_state' => 'waiting_for_announce_quiz_code',
         ]);
@@ -246,9 +255,16 @@ class QuizService
 
     public function sendAnnounceResultsToAllUsers($chat_id, $quiz_id)
     {
-        $answers = $this->quizAndAnswerRepository->getAnswersByQuizIdWithoutUser($quiz_id);
+        $answers = $this->quizAndAnswerRepository->getAnswersByQuizId($quiz_id);
+        $quiz = $this->quizAndAnswerRepository->getQuizById($quiz_id);
         foreach ($answers as $answer) {
             $this->telegramService->sendMessage($answer->answer_text,$answer->chat_id);
+            if($quiz->certification){
+                // Generate certificate
+                $outputPath = $this->certificateService->generateCertificate($answer, $answer->chat_id);
+                $this->telegramService->sendPhoto($outputPath,$answer->chat_id);
+                $this->certificateService->cleanupCertificate($outputPath);
+            }
         }
         $message = "Natijalar e'lon qilindi.";
         $back_buttons = [

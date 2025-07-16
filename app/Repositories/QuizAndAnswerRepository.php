@@ -37,6 +37,11 @@ class QuizAndAnswerRepository
         return Answer::where('user_id', $user_id)->get();
     }
 
+    public function getQuizById($quiz_id)
+    {
+        return Quiz::where('id', $quiz_id)->first();
+    }
+
     public function getDraftQuizByUserId($chat_id)
     {
         return Quiz::where('author_id', $chat_id)->where('status', 'draft')->first();
