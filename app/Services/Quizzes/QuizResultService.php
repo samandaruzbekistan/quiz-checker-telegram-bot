@@ -7,13 +7,15 @@ use App\Services\TelegramService;
 use App\Repositories\UserRepository;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
+use App\Services\CertificateService;
 
 class QuizResultService
 {
     public function __construct(
         protected QuizAndAnswerRepository $quizAndAnswerRepository,
         protected TelegramService $telegramService,
-        protected UserRepository $userRepository
+        protected UserRepository $userRepository,
+        protected CertificateService $certificateService
     )
     {
     }
@@ -21,12 +23,12 @@ class QuizResultService
     public function handleCheckAnswers($chat_id)
     {
         $message = "✍️ Test kodini yuboring";
-        $inline_keyboard = [
+        $keyboard = [
             [
-                ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                'Bosh menuga qaytish ↩️'
             ]
         ];
-        $this->telegramService->sendInlineKeyboard($message, $chat_id, $inline_keyboard);
+        $this->telegramService->sendReplyKeyboard($message, $chat_id, $keyboard);
 
         $this->userRepository->updateUser($chat_id, [
             'page_state' => 'waiting_for_test_code_in_check_answers',
@@ -35,27 +37,30 @@ class QuizResultService
 
     public function handleTestCodeInCheckAnswers($chat_id, $message_text)
     {
+        if($message_text == 'Bosh menuga qaytish ↩️'){
+            return 1;
+        }
         $test_code = $message_text;
         $quiz = $this->quizAndAnswerRepository->getQuizByCode($test_code);
 
         if (!$quiz) {
-            $inline_keyboard = [
+            $keyboard = [
                 [
-                    ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                    'Bosh menuga qaytish ↩️'
                 ]
             ];
-            $this->telegramService->sendInlineKeyboard("❗ Bunday test topilmadi. Qayta urinib ko'ring.", $chat_id, $inline_keyboard);
-            return;
+            $this->telegramService->sendReplyKeyboard("❗ Bunday test topilmadi. Qayta urinib ko'ring.", $chat_id, $keyboard);
+            return 0;
         }
 
         if ($quiz->status == 'archived') {
-            $inline_keyboard = [
+            $keyboard = [
                 [
-                    ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                    'Bosh menuga qaytish ↩️'
                 ]
             ];
-            $this->telegramService->sendInlineKeyboard("❗ Bu test yakunlangan. Qayta urinib ko'ring.", $chat_id, $inline_keyboard);
-            return;
+            $this->telegramService->sendReplyKeyboard("❗ Bu test yakunlangan. Qayta urinib ko'ring.", $chat_id, $keyboard);
+            return 0;
         }
 
         // Test start va end datetime obyektlarini yaratamiz
@@ -64,29 +69,35 @@ class QuizResultService
         $now = now();
 
         if ($now->lt($start)) {
-            $inline_keyboard = [
+            $keyboard = [
                 [
-                    ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                    'Bosh menuga qaytish ↩️'
                 ]
             ];
-            $this->telegramService->sendInlineKeyboard("⏳ Test hali boshlanmagan. Boshlanish vaqti: <b>{$start}</b>", $chat_id, $inline_keyboard);
+            $this->telegramService->sendReplyKeyboard("⏳ Test hali boshlanmagan. Boshlanish vaqti: <b>{$start}</b>", $chat_id, $keyboard);
             $this->handleCheckAnswers($chat_id);
-            return;
+            return 0;
         }
 
         if ($now->gt($end)) {
-            $inline_keyboard = [
+            $keyboard = [
                 [
-                    ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                    'Bosh menuga qaytish ↩️'
                 ]
             ];
-            $this->telegramService->sendInlineKeyboard("⌛ Test vaqti tugagan. Tugash vaqti: <b>{$end}</b>", $chat_id, $inline_keyboard);
+            $this->telegramService->sendReplyKeyboard("⌛ Test vaqti tugagan. Tugash vaqti: <b>{$end}</b>", $chat_id, $keyboard);
             $this->handleCheckAnswers($chat_id);
-            return;
+            return 0;
         }
 
+        $keyboard = [
+            [
+                'Bosh menuga qaytish ↩️'
+            ]
+        ];
+
         // Test boshlanishi va yakunlanishi oralig'idamiz
-        $this->telegramService->sendMessage("✅ Test kodini to'g'ri kiritdingiz. Testni tekshirishni boshlaymiz.\n\nJavoblarni quyidagi ko'rinishda yuboring: <b>a,b,c,d yoki 1a2b3c4d</b>\n\nUmumiy savollar soni: <b>{$quiz->questions_count}</b>", $chat_id);
+        $this->telegramService->sendReplyKeyboard("✅ Test kodini to'g'ri kiritdingiz. Testni tekshirishni boshlaymiz.\n\nJavoblarni quyidagi ko'rinishda yuboring: <b>a,b,c,d yoki 1a2b3c4d</b>\n\nUmumiy savollar soni: <b>{$quiz->questions_count}</b>", $chat_id, $keyboard);
 
         // Davom etish uchun page_state ni o'zgartirish mumkin
         $this->userRepository->updateUser($chat_id, [
@@ -97,6 +108,10 @@ class QuizResultService
 
     public function handleTestAnswerInput($chat_id, $message_text)
     {
+
+        if($message_text == 'Bosh menuga qaytish ↩️'){
+            return 1;
+        }
         $user = $this->userRepository->getUserByChatId($chat_id);
         $quiz = $this->quizAndAnswerRepository->getQuizByCode($user->active_quiz_id);
 
@@ -160,15 +175,15 @@ class QuizResultService
             'incorrect_answers_count' => strlen($correctAnswers) - $correctCount,
         ];
 
-        $this->quizAndAnswerRepository->createAnswer($inserted_data);
+        $answer = $this->quizAndAnswerRepository->createAnswer($inserted_data);
 
         if ($quiz->send_result_auto) {
             $this->telegramService->sendMessage($resultMessage1, $chat_id);
             if ($quiz->certification) {
-                $certificatePath = app(\App\Services\CertificateService::class)->generateCertificate((object)array_merge($inserted_data, ['quiz' => $quiz, 'user' => $user]), $chat_id);
+                $certificatePath = $this->certificateService->generateCertificate($answer, $chat_id);
                 if ($certificatePath) {
                     $this->telegramService->sendPhoto($certificatePath, $chat_id, "🏆 Sertifikatingiz tayyor!");
-                    app(\App\Services\CertificateService::class)->cleanupCertificate($certificatePath);
+                    $this->certificateService->cleanupCertificate($certificatePath);
                 }
             }
         }else{

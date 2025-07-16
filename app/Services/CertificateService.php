@@ -106,7 +106,7 @@ class CertificateService
         });
 
         // Add quiz title
-        $image->text("Siz {$data['date']} @forsirojiddinakabot da o'tkazilgan online testda umumiy {$data['total_questions']}  ta savoldan", $width / 2, $height * 0.52, function ($font) use ($fontPath) {
+        $image->text("Siz {$data['date']} @Kattaqadambot da o'tkazilgan online testda umumiy {$data['total_questions']}  ta savoldan", $width / 2, $height * 0.52, function ($font) use ($fontPath) {
             $font->filename($fontPath);
             $font->size(40);
             $font->color('#000000');

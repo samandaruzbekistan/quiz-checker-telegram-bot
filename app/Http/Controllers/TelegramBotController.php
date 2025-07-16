@@ -206,7 +206,10 @@ class TelegramBotController extends Controller
             } elseif ($user && $user->page_state === 'waiting_for_subject_name') {
                 $this->simpleQuizService->handleTestSubjectNameInput($chat_id, $message_text, $user);
             } elseif ($user && $user->page_state === 'waiting_for_test_code_in_check_answers') {
-                $this->quizResultService->handleTestCodeInCheckAnswers($chat_id, $message_text);
+                $result = $this->quizResultService->handleTestCodeInCheckAnswers($chat_id, $message_text);
+                if ($result == 1) {
+                    $this->showMainMenu($chat_id);
+                }
             } elseif ($user && $user->page_state === 'waiting_for_test_answer_input') {
                 $result = $this->quizResultService->handleTestAnswerInput($chat_id, $message_text);
                 if ($result == 1) {
