@@ -39,28 +39,13 @@ class PdfTestService
     {
         $message = "📚 <b>Testlar bo'limi</b>\n\nAdmin paneliga xush kelibsiz!";
 
-        $keyboard = [
-            [
-                [
-                    'text' => '➕ Test qo\'shish',
-                    'callback_data' => 'add_pdf_test'
-                ]
-            ],
-            [
-                [
-                    'text' => '📊 Test natijalari',
-                    'callback_data' => 'view_pdf_test_results'
-                ]
-            ],
-            [
-                [
-                    'text' => '🔙 Asosiy menyuga qaytish',
-                    'callback_data' => 'back_to_main_menu'
-                ]
-            ]
+        $buttons = [
+           ['➕ Test qo\'shish', '🔙 Asosiy menyuga qaytish'],
         ];
 
-        $this->telegramService->sendInlineKeyboard($message, $chatId, $keyboard);
+        $this->userRepository->updateUser($chatId, ['page_state' => 'admin_tests_menu']);
+
+        $this->telegramService->sendReplyKeyboard($message, $chatId, $buttons);
     }
 
     public function showUserTestsMenu($chatId)
@@ -70,20 +55,17 @@ class PdfTestService
         if ($pdfTests->isEmpty()) {
             $message = "📚 <b>Testlar</b>\n\nHozirda mavjud testlar yo'q. Iltimos, keyinroq urinib ko'ring.";
 
-            $keyboard = [
-                [
-                    [
-                        'text' => '🔙 Asosiy menyuga qaytish',
-                        'callback_data' => 'back_to_main_menu'
-                    ]
-                ]
+            $buttons = [
+                '🔙 Asosiy menyuga qaytish'
             ];
 
-            $this->telegramService->sendInlineKeyboard($message, $chatId, $keyboard);
+            $this->telegramService->sendReplyKeyboard($message, $chatId, $buttons);
             return;
         }
 
-        $message = "📚 <b>Mavjud testlar:</b>\n\nQuyidagi testlardan birini tanlang:";
+        $message = "Quyidagi testlardan birini tanlang:";
+        $this->telegramService->sendMessageRemoveKeyboard($message, $chatId);
+        $message = "📚 <b>Mavjud testlar:</b>";
 
         $keyboard = [];
         foreach ($pdfTests as $test) {
@@ -105,17 +87,29 @@ class PdfTestService
         $this->telegramService->sendInlineKeyboard($message, $chatId, $keyboard);
     }
 
+    public function handleAdminTestsMenu($chatId, $message_text)
+    {
+        if($message_text == '➕ Test qo\'shish'){
+            $this->handleAddPdfTest($chatId);
+        }
+        else if($message_text == '🔙 Asosiy menyuga qaytish'){
+            $this->showMainMenu($chatId);
+        }
+    }
+
     public function handleAddPdfTest($chatId)
     {
         $this->userRepository->updateUser($chatId, ['page_state' => 'waiting_for_pdf_test_name']);
 
-        $message = "📝 <b>Test qo'shish</b>\n\nTest nomini kiriting:";
+        $message = "📝 <b>Test qo'shish</b>";
+        $this->telegramService->sendMessageRemoveKeyboard($message, $chatId);
+        $message = "Test nomini kiriting:";
 
         $keyboard = [
             [
                 [
-                    'text' => '🔙 Orqaga',
-                    'callback_data' => 'back_to_tests_menu'
+                    'text' => '🔙 Asosiy menyuga qaytish',
+                    'callback_data' => 'back_to_main_menu'
                 ]
             ]
         ];
@@ -135,8 +129,8 @@ class PdfTestService
         $keyboard = [
             [
                 [
-                    'text' => '🔙 Orqaga',
-                    'callback_data' => 'back_to_tests_menu'
+                    'text' => '🔙 Asosiy menyuga qaytish',
+                    'callback_data' => 'back_to_main_menu'
                 ]
             ]
         ];
@@ -162,8 +156,8 @@ class PdfTestService
         $keyboard = [
             [
                 [
-                    'text' => '🔙 Orqaga',
-                    'callback_data' => 'back_to_tests_menu'
+                    'text' => '🔙 Asosiy menyuga qaytish',
+                    'callback_data' => 'back_to_main_menu'
                 ]
             ]
         ];
@@ -188,8 +182,8 @@ class PdfTestService
         $keyboard = [
             [
                 [
-                    'text' => '🔙 Orqaga',
-                    'callback_data' => 'back_to_tests_menu'
+                    'text' => '🔙 Asosiy menyuga qaytish',
+                    'callback_data' => 'back_to_main_menu'
                 ]
             ]
         ];
@@ -208,8 +202,8 @@ class PdfTestService
             $answers = strtolower(trim($answers));
 
             // Validate answers format
-            if (!preg_match('/^[abcd]+$/', $answers)) {
-                $this->telegramService->sendMessage("❌ Javoblar faqat a, b, c, d harflaridan iborat bo'lishi kerak.", $chatId);
+            if (!preg_match('/^[a-z]+$/', $answers)) {
+                $this->telegramService->sendMessage("❌ Javoblar faqat harflaridan iborat bo'lishi kerak.", $chatId);
                 return;
             }
 

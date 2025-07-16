@@ -245,6 +245,9 @@ class TelegramBotController extends Controller
                 $this->handleAdminBroadcast($chat_id, $data['message']);
                 return response()->json(['ok' => true]);
             }
+            elseif ($user && $user->page_state === 'admin_tests_menu') {
+                $this->pdfTestService->handleAdminTestsMenu($chat_id, $message_text);
+            }
         }
 
         return response()->noContent(200);

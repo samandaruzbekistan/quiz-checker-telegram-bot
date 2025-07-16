@@ -14,7 +14,7 @@ class PdfTestRepository
 
     public function getAllActivePdfTests()
     {
-        return PdfTest::where('is_active', true)->get();
+        return PdfTest::where('is_active', true)->latest()->get();
     }
 
     public function getPdfTestById($id)
