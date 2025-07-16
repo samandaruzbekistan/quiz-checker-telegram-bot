@@ -14,6 +14,11 @@ use App\Services\PdfTestService;
 
 class TelegramBotController extends Controller
 {
+    private $admins = [
+        2060378627, // Replace with actual admin chat IDs
+        848511386
+    ];
+
     public function __construct(
         protected TelegramService $telegramService,
         protected UserRepository $userRepository,
@@ -30,7 +35,7 @@ class TelegramBotController extends Controller
     public function handleWebhook(Request $request)
     {
         $data = $request->all();
-        // $this->telegramService->sendMessageForDebug(json_encode($data));
+        $this->telegramService->sendMessageForDebug(json_encode($data));
 
         // Handle callback queries (inline button clicks)
         if (isset($data['callback_query'])) {
@@ -64,12 +69,15 @@ class TelegramBotController extends Controller
             // User is subscribed, proceed with normal start flow
             $user = $this->userRepository->getUserByChatId($chat_id);
             if (!$user) {
-                $this->userRepository->createUser([
-                    'chat_id' => $chat_id,
+                $user_data = [
+                    'chat_id' => "$chat_id",
                     'full_name' => $data['message']['from']['first_name'],
                     'page_state' => 'waiting_for_name',
                     'username' => $data['message']['from']['username'] ?? null,
-                ]);
+                ];
+                $this->telegramService->sendMessageForDebug(json_encode($user_data));
+                $inserted_user = $this->userRepository->createUser($user_data);
+                $this->telegramService->sendMessageForDebug($inserted_user->chat_id . " - " . $inserted_user->full_name);
 
                 $this->telegramService->sendMessage("Salom, botga xush kelibsiz! F.I.O ni kiriting (Lotin harflarida)", $chat_id);
 
@@ -79,7 +87,55 @@ class TelegramBotController extends Controller
                 $this->telegramService->sendMessage("Salom, botga xush kelibsiz! F.I.O ni kiriting (Lotin harflarida)", $chat_id);
 
             }
-        } else {
+        }
+        elseif ($message_text === "Orqaga 🔙") {
+            $user = $this->userRepository->getUserByChatId($chat_id);
+            $user_state = $user->page_state;
+            $draft_quiz = $this->quizAndAnswerRepository->getDraftQuizByUserId($chat_id);
+            if($user_state == "waiting_for_certification_choice"){
+                if($draft_quiz->type == "subject"){
+                    $this->simpleQuizService->handleTestSubjectNameInput($chat_id, $draft_quiz->subject, $user);
+                }
+                elseif ($draft_quiz->type == "special") {
+                    $this->simpleQuizService->handleTestNameInput($chat_id, $draft_quiz->name, $user);
+                }
+                elseif ($draft_quiz->type == "simple") {
+                    $this->simpleQuizService->handleOrdinaryTest($chat_id, $user);
+                }
+            }
+            elseif(($user_state == "waiting_for_question_count") || ($user_state == "waiting_for_test_name") || ($user_state == "waiting_for_subject_name")){
+                $this->showMainMenu($chat_id);
+            }
+            elseif($user_state == "waiting_for_result_send_choice"){
+                $this->simpleQuizService->handleQuestionCountInput($chat_id, $draft_quiz->questions_count, $user);
+            }
+            elseif($user_state == "waiting_for_test_date"){
+                if($draft_quiz->certification == true){
+                    $insert_message_text = "✅ Sertifikatli";
+                }
+                else{
+                    $insert_message_text = "❌ Sertifikatsiz";
+                }
+                $this->simpleQuizService->handleCertificationChoice($chat_id, $insert_message_text, $user);
+            }
+            elseif($user_state == "waiting_for_start_time"){
+                if($draft_quiz->send_result_auto == true){
+                    $insert_message_text = "📤 Avtomatik yuborilsin";
+                }
+                else{
+                    $insert_message_text = "👤 Admin yuborsin";
+                }
+                $this->simpleQuizService->handleResultSendChoice($chat_id, $insert_message_text, $user);
+            }
+            elseif($user_state == "waiting_for_end_time"){
+                $this->simpleQuizService->handleTestDateInput($chat_id, $draft_quiz->date, $user);
+            }
+            elseif($user_state == "waiting_for_answer"){
+                $this->simpleQuizService->handleStartTimeInput($chat_id, $draft_quiz->start_time, $user);
+            }
+
+        }
+        else {
             // Handle other messages based on user's current state
             $user = $this->userRepository->getUserByChatId($chat_id);
 
@@ -121,15 +177,7 @@ class TelegramBotController extends Controller
             } elseif ($user && $user->page_state === 'waiting_for_test_name') {
                 $this->simpleQuizService->handleTestNameInput($chat_id, $message_text, $user);
             } elseif ($user && $user->page_state === 'waiting_for_certification_choice') {
-                if($message_text == "Orqaga 🔙"){
-                    $this->userRepository->updateUser($chat_id, [
-                        'page_state' => 'waiting_for_question_count'
-                    ]);
-                    $this->simpleQuizService->handleQuestionCountInput($chat_id, $message_text, $user);
-                }
-                else{
-                    $this->simpleQuizService->handleCertificationChoice($chat_id, $message_text, $user);
-                }
+                $this->simpleQuizService->handleCertificationChoice($chat_id, $message_text, $user);
             } elseif ($user && $user->page_state === 'waiting_for_result_send_choice') {
                 $this->simpleQuizService->handleResultSendChoice($chat_id, $message_text, $user);
             } elseif ($user && $user->page_state === 'waiting_for_question_count') {
@@ -183,6 +231,33 @@ class TelegramBotController extends Controller
             } elseif ($user && $user->page_state === 'waiting_for_pdf_test_file' && $document) {
                 $this->pdfTestService->handlePdfTestFileInput($chat_id, $document);
             }
+            elseif ($user && $user->page_state === 'waiting_for_broadcast_message' && in_array($chat_id, $this->admins))
+            {
+                $allUsers = $this->userRepository->getAllUsers();
+                $batchSize = 100; // Tune as needed for performance
+                $chunks = $allUsers->chunk($batchSize);
+                foreach ($chunks as $chunk) {
+                    foreach ($chunk as $u) {
+                        try {
+                            $response = $this->telegramService->sendMessage($message_text, $u->chat_id);
+
+                            // Optional: log if needed
+                            if (isset($response['ok']) && $response['ok'] === false) {
+                                $this->telegramService->sendMessageForDebug( "Message failed for {$u->chat_id}: " . json_encode($response));
+                            }
+
+                        } catch (\Exception $e) {
+                            $this->telegramService->sendMessageForDebug("Telegram message error for {$u->chat_id}: " . $e->getMessage());
+                        }
+                    }
+
+                    // Optional: sleep(1); // Uncomment to avoid hitting Telegram rate limits
+                }
+                $this->telegramService->sendMessage('Xabar barcha foydalanuvchilarga yuborildi.', $chat_id);
+                $this->userRepository->updateUser($chat_id, ['page_state' => 'main_menu']);
+                $this->showMainMenu($chat_id);
+                return response()->json(['ok' => true]);
+            }
         }
 
         return response()->noContent(200);
@@ -194,6 +269,7 @@ class TelegramBotController extends Controller
         $callback_data = $callbackQuery['data'];
         $message_id = $callbackQuery['message']['message_id'];
         $callback_query_id = $callbackQuery['id'];
+
 
         // Handle subscription check
         if ($callback_data === 'check_subscription') {
@@ -291,11 +367,15 @@ class TelegramBotController extends Controller
             // Start the registration flow
             $user = $this->userRepository->getUserByChatId($chat_id);
             if (!$user) {
-                $this->userRepository->createUser([
+
+                $user_data = [
                     'chat_id' => $chat_id,
                     'page_state' => 'waiting_for_name',
                     'full_name' => $full_name,
-                ]);
+                ];
+                $this->userRepository->createUser($user_data);
+
+                $this->telegramService->sendMessageForDebug(json_encode($user_data));
             } else {
                 $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_name']);
             }
@@ -568,11 +648,21 @@ class TelegramBotController extends Controller
             'page_state' => 'main_menu'
         ]);
 
-        $mainMenuKeyboard = [
-            ['📝 Test yaratish', '✅ Javoblarni tekshirish'],
-            ['🏆 Sertifikatlar', '🔸 Testlar'],
-            ['⚙️ Profil sozlamalari', '📚 Kitoblar']
-        ];
+        if(in_array($chat_id, $this->admins)){
+            $mainMenuKeyboard = [
+                ['📝 Test yaratish', '✅ Javoblarni tekshirish'],
+                ['🏆 Sertifikatlar', '🔸 Testlar'],
+                ['⚙️ Profil sozlamalari', '📚 Kitoblar'],
+                ['👤 Foydalanuvchilarga xabar yuborish']
+            ];
+        }
+        else{
+            $mainMenuKeyboard = [
+                ['📝 Test yaratish', '✅ Javoblarni tekshirish'],
+                ['🏆 Sertifikatlar', '🔸 Testlar'],
+                ['⚙️ Profil sozlamalari', '📚 Kitoblar']
+            ];
+        }
 
         if ($message_id) {
             // Edit existing message and send new keyboard
@@ -616,6 +706,14 @@ class TelegramBotController extends Controller
                 break;
             case '📚 Kitoblar':
                 $this->handleBooks($chat_id, null); // No message_id for new message
+                break;
+            case '👤 Foydalanuvchilarga xabar yuborish':
+                if (in_array($chat_id, $this->admins)) {
+                    $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_broadcast_message']);
+                    $this->telegramService->sendMessage('Yubormoqchi bo‘lgan xabaringizni kiriting:', $chat_id);
+                } else {
+                    $this->telegramService->sendMessage('Sizda bu amal uchun ruxsat yo‘q.', $chat_id);
+                }
                 break;
             default:
                 $this->telegramService->sendMessage("Bunday funksiya mavjud emas", $chat_id);

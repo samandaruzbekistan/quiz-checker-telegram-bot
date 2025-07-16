@@ -25,14 +25,14 @@ class QuizService
             $this->quizAndAnswerRepository->deleteQuiz($draftQuiz->id);
         }
 
-        $back_inline_keyboard = [
+        $back_buttons = [
             [
-                ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                'Orqaga 🔙'
             ]
         ];
 
         $message = "🗂️ <b>Fanga doir test yaratish</b>\nFan nomini kiriting\nM-n: Matematika";
-        $this->telegramService->sendInlineKeyboard($message, $chat_id, $back_inline_keyboard);
+        $this->telegramService->sendReplyKeyboard($message, $chat_id, $back_buttons);
 
         $this->quizAndAnswerRepository->createQuiz([
             'author_id' => $chat_id,
@@ -67,8 +67,14 @@ class QuizService
             $this->quizAndAnswerRepository->deleteQuiz($draftQuiz->id);
         }
 
-        $message = "🗂️ <b>Maxsus test yaratish</b>\n\nTest nomini kiriting\nM-n:Prezident maktabiga tayyorgarlik testi";
-        $this->telegramService->sendMessage($message, $chat_id);
+        $back_buttons = [
+            [
+                'Orqaga 🔙'
+            ]
+        ];
+
+        $message = "🗂️ <b>Maxsus test yaratish</b>\n\nTest nomini kiriting\nM-n: Prezident maktabiga tayyorgarlik testi";
+        $this->telegramService->sendReplyKeyboard($message, $chat_id, $back_buttons);
 
         $this->quizAndAnswerRepository->createQuiz([
             'author_id' => $chat_id,
@@ -284,7 +290,8 @@ class QuizService
 
         // Ask if results should be sent automatically or by admin
         $resultSendKeyboard = [
-            ['📤 Avtomatik yuborilsin', '👤 Admin yuborsin']
+            ['📤 Avtomatik yuborilsin', '👤 Admin yuborsin'],
+            ['Orqaga 🔙']
         ];
         $this->telegramService->sendReplyKeyboard(
             "Natijalar qanday yuborilsin?",
@@ -313,8 +320,14 @@ class QuizService
 
         $now_date = now()->format('d.m.Y');
 
+        $back_buttons = [
+            [
+                'Orqaga 🔙'
+            ]
+        ];
+
         // Continue to test date
-        $this->telegramService->sendMessageRemoveKeyboard("📅 Test o‘tkaziladigan sanani kiriting:\nMasalan: {$now_date}", $chat_id);
+        $this->telegramService->sendReplyKeyboard("📅 Test o‘tkaziladigan sanani kiriting:\nMasalan: {$now_date}", $chat_id, $back_buttons);
         $this->userRepository->updateUser($chat_id, [
             'page_state' => 'waiting_for_test_date',
         ]);
@@ -398,7 +411,13 @@ class QuizService
         $quiz->date = $date->format('d.m.Y');
         $quiz->save();
 
-        $this->telegramService->sendMessage("⏰ Test boshlanish vaqtini kiriting:\nMasalan: 12:00", $chat_id);
+        $back_buttons = [
+            [
+                'Orqaga 🔙'
+            ]
+        ];
+
+        $this->telegramService->sendReplyKeyboard("⏰ Test boshlanish vaqtini kiriting:\nMasalan: 12:00", $chat_id, $back_buttons);
 
         $this->userRepository->updateUser($chat_id, [
             'page_state' => 'waiting_for_start_time',
@@ -425,7 +444,13 @@ class QuizService
         $quiz->start_time = $message_text;
         $quiz->save();
 
-        $this->telegramService->sendMessage("⏱ Test tugash vaqtini kiriting:\nMasalan: 14:00", $chat_id);
+        $back_buttons = [
+            [
+                'Orqaga 🔙'
+            ]
+        ];
+
+        $this->telegramService->sendReplyKeyboard("⏱ Test tugash vaqtini kiriting:\nMasalan: 14:00", $chat_id, $back_buttons);
 
         $this->userRepository->updateUser($chat_id, [
             'page_state' => 'waiting_for_end_time',
@@ -464,8 +489,14 @@ class QuizService
         $quiz->end_time = $message_text;
         $quiz->save();
 
+        $back_buttons = [
+            [
+                'Orqaga 🔙'
+            ]
+        ];
+
         // Javoblarni kiritishga o‘tish
-        $this->telegramService->sendMessage("✅ Testni yaratish tugadi. Javoblarini kiriting. \nMasalan: 10 ta savolli test uchun <b>abcdabcdcd</b>", $chat_id);
+        $this->telegramService->sendReplyKeyboard("✅ Testni yaratish tugadi. Javoblarini kiriting. \nMasalan: 10 ta savolli test uchun <b>abcdefghij</b>", $chat_id, $back_buttons);
 
         $this->userRepository->updateUser($chat_id, [
             'page_state' => 'waiting_for_answer',
