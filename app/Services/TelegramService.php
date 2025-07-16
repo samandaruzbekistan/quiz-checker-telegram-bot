@@ -112,6 +112,57 @@ class TelegramService
         return $response->json();
     }
 
+    public function sendVideo($chat_id, $fileId, $caption = null)
+    {
+        $response = Http::post($this->telegramBotUrl . "/sendVideo", [
+            'chat_id' => $chat_id,
+            'video' => $fileId,
+            'caption' => $caption,
+            'parse_mode' => 'HTML',
+        ]);
+
+        return $response->json();
+    }
+
+    public function sendPhotoByFileId($chat_id, $fileId, $caption = null)
+    {
+        $response = Http::post($this->telegramBotUrl . "/sendPhoto", [
+            'chat_id' => $chat_id,
+            'photo' => $fileId,
+            'caption' => $caption,
+            'parse_mode' => 'HTML',
+        ]);
+
+        return $response->json();
+    }
+
+    public function forwardMessage($chat_id, $from_chat_id, $message_id)
+    {
+        $response = Http::post($this->telegramBotUrl . "/forwardMessage", [
+            'chat_id' => $chat_id,
+            'from_chat_id' => $from_chat_id,
+            'message_id' => $message_id,
+        ]);
+
+        return $response->json();
+    }
+
+    public function copyMessage($chat_id, $from_chat_id, $message_id, $caption = null)
+    {
+        $data = [
+            'chat_id' => $chat_id,
+            'from_chat_id' => $from_chat_id,
+            'message_id' => $message_id,
+        ];
+
+        if ($caption) {
+            $data['caption'] = $caption;
+        }
+
+        $response = Http::post($this->telegramBotUrl . "/copyMessage", $data);
+        return $response->json();
+    }
+
     public function sendTextWithButtons($message, $chat_id, $buttons)
     {
         $response = Http::post($this->telegramBotUrl . "/sendMessage", [

@@ -242,34 +242,101 @@ class TelegramBotController extends Controller
             }
             elseif ($user && $user->page_state === 'waiting_for_broadcast_message' && in_array($chat_id, $this->admins))
             {
-                $allUsers = $this->userRepository->getAllUsers();
-                $batchSize = 100; // Tune as needed for performance
-                $chunks = $allUsers->chunk($batchSize);
-                foreach ($chunks as $chunk) {
-                    foreach ($chunk as $u) {
-                        try {
-                            $response = $this->telegramService->sendMessage($message_text, $u->chat_id);
-
-                            // Optional: log if needed
-                            if (isset($response['ok']) && $response['ok'] === false) {
-                                $this->telegramService->sendMessageForDebug( "Message failed for {$u->chat_id}: " . json_encode($response));
-                            }
-
-                        } catch (\Exception $e) {
-                            $this->telegramService->sendMessageForDebug("Telegram message error for {$u->chat_id}: " . $e->getMessage());
-                        }
-                    }
-
-                    // Optional: sleep(1); // Uncomment to avoid hitting Telegram rate limits
-                }
-                $this->telegramService->sendMessage('Xabar barcha foydalanuvchilarga yuborildi.', $chat_id);
-                $this->userRepository->updateUser($chat_id, ['page_state' => 'main_menu']);
-                $this->showMainMenu($chat_id);
+                $this->handleAdminBroadcast($chat_id, $data['message']);
                 return response()->json(['ok' => true]);
             }
         }
 
         return response()->noContent(200);
+    }
+
+    private function handleAdminBroadcast($admin_chat_id, $message)
+    {
+        $allUsers = $this->userRepository->getAllUsers();
+        $batchSize = 100; // Tune as needed for performance
+        $chunks = $allUsers->chunk($batchSize);
+
+        $successCount = 0;
+        $failedCount = 0;
+
+        foreach ($chunks as $chunk) {
+            foreach ($chunk as $u) {
+                try {
+                    $response = $this->sendMediaToUser($u->chat_id, $message);
+
+                    if (isset($response['ok']) && $response['ok'] === true) {
+                        $successCount++;
+                    } else {
+                        $failedCount++;
+                        $this->telegramService->sendMessageForDebug("Message failed for {$u->chat_id}: " . json_encode($response));
+                    }
+                } catch (\Exception $e) {
+                    $failedCount++;
+                    $this->telegramService->sendMessageForDebug("Telegram message error for {$u->chat_id}: " . $e->getMessage());
+                }
+            }
+
+            // Optional: sleep(1); // Uncomment to avoid hitting Telegram rate limits
+        }
+
+        // Send summary to admin
+        $summary = "📤 Xabar yuborish yakunlandi!\n\n";
+        $summary .= "✅ Muvaffaqiyatli: {$successCount}\n";
+        $summary .= "❌ Xatolik: {$failedCount}\n";
+        $summary .= "📊 Jami: " . ($successCount + $failedCount);
+
+        $this->telegramService->sendMessage($summary, $admin_chat_id);
+        $this->userRepository->updateUser($admin_chat_id, ['page_state' => 'main_menu']);
+        $this->showMainMenu($admin_chat_id);
+    }
+
+    private function sendMediaToUser($user_chat_id, $message)
+    {
+        // Check for different media types
+        if (isset($message['photo'])) {
+            // Handle photo
+            $photo = end($message['photo']); // Get the largest photo
+            $caption = $message['caption'] ?? null;
+            return $this->telegramService->sendPhotoByFileId($user_chat_id, $photo['file_id'], $caption);
+
+        } elseif (isset($message['video'])) {
+            // Handle video
+            $video = $message['video'];
+            $caption = $message['caption'] ?? null;
+            return $this->telegramService->sendVideo($user_chat_id, $video['file_id'], $caption);
+
+        } elseif (isset($message['document'])) {
+            // Handle document
+            $document = $message['document'];
+            $caption = $message['caption'] ?? null;
+            return $this->telegramService->sendDocumentByFileId($user_chat_id, $document['file_id'], $caption);
+
+        } elseif (isset($message['animation'])) {
+            // Handle GIF/Animation
+            $animation = $message['animation'];
+            $caption = $message['caption'] ?? null;
+            return $this->telegramService->sendVideo($user_chat_id, $animation['file_id'], $caption);
+
+        } elseif (isset($message['voice'])) {
+            // Handle voice message
+            $voice = $message['voice'];
+            $caption = $message['caption'] ?? null;
+            return $this->telegramService->sendDocumentByFileId($user_chat_id, $voice['file_id'], $caption);
+
+        } elseif (isset($message['audio'])) {
+            // Handle audio
+            $audio = $message['audio'];
+            $caption = $message['caption'] ?? null;
+            return $this->telegramService->sendDocumentByFileId($user_chat_id, $audio['file_id'], $caption);
+
+        } elseif (isset($message['text'])) {
+            // Handle text message
+            return $this->telegramService->sendMessage($message['text'], $user_chat_id);
+
+        } else {
+            // If no recognized media type, try to copy the message
+            return $this->telegramService->copyMessage($user_chat_id, $message['chat']['id'], $message['message_id']);
+        }
     }
 
     private function handleCallbackQuery($callbackQuery)
@@ -674,7 +741,7 @@ class TelegramBotController extends Controller
             case '👤 Foydalanuvchilarga xabar yuborish':
                 if (in_array($chat_id, $this->admins)) {
                     $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_broadcast_message']);
-                    $this->telegramService->sendMessage('Yubormoqchi bo‘lgan xabaringizni kiriting:', $chat_id);
+                    $this->telegramService->sendMessage("📤 Yubormoqchi bo'lgan xabaringizni yuboring:\n\n📝 Matn, 🖼️ Rasm, 🎥 Video, 📄 Hujjat, 🎵 Audio yoki boshqa turdagi xabarlarni yuborishingiz mumkin.", $chat_id);
                 } else {
                     $this->telegramService->sendMessage('Sizda bu amal uchun ruxsat yo‘q.', $chat_id);
                 }
