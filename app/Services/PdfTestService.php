@@ -31,7 +31,7 @@ class PdfTestService
             $this->showAdminTestsMenu($chatId);
         } else {
             // Regular user sees available tests
-            $this->showUserTestsMenu($chatId);
+            $this->showUserTestsMenu($chatId, 1);
         }
     }
 
@@ -48,7 +48,7 @@ class PdfTestService
         $this->telegramService->sendReplyKeyboard($message, $chatId, $buttons);
     }
 
-    public function showUserTestsMenu($chatId)
+    public function showUserTestsMenu($chatId, $page = 1)
     {
         $pdfTests = $this->pdfTestRepository->getAllActivePdfTests();
 
@@ -63,20 +63,65 @@ class PdfTestService
             return;
         }
 
-        $message = "Quyidagi testlardan birini tanlang:";
-        $this->telegramService->sendMessageRemoveKeyboard($message, $chatId);
-        $message = "📚 <b>Mavjud testlar:</b>";
+        $itemsPerPage = 10;
+        $totalTests = $pdfTests->count();
+        $totalPages = ceil($totalTests / $itemsPerPage);
+
+        // Validate page number
+        if ($page < 1) $page = 1;
+        if ($page > $totalPages) $page = $totalPages;
+
+        // Get tests for current page
+        $offset = ($page - 1) * $itemsPerPage;
+        $currentPageTests = $pdfTests->slice($offset, $itemsPerPage);
+
+        $message = "📚 <b>Mavjud testlar:</b> (Sahifa {$page}/{$totalPages})";
 
         $keyboard = [];
-        foreach ($pdfTests as $test) {
-            $keyboard[] = [
-                [
-                    'text' => $test->name,
-                    'callback_data' => 'pdf_test_' . $test->id
-                ]
+
+        // Add test buttons (2 per row)
+        $testRow = [];
+        foreach ($currentPageTests as $test) {
+            $testRow[] = [
+                'text' => $test->name,
+                'callback_data' => 'pdf_test_' . $test->id
             ];
+
+            if (count($testRow) == 2) {
+                $keyboard[] = $testRow;
+                $testRow = [];
+            }
         }
 
+        // Add remaining test if odd number
+        if (!empty($testRow)) {
+            $keyboard[] = $testRow;
+        }
+
+        // Add pagination buttons
+        $paginationRow = [];
+
+        if ($totalPages > 1) {
+            if ($page > 1) {
+                $paginationRow[] = [
+                    'text' => '⬅️ Oldingi',
+                    'callback_data' => 'pdf_tests_page_' . ($page - 1)
+                ];
+            }
+
+            if ($page < $totalPages) {
+                $paginationRow[] = [
+                    'text' => 'Keyingi ➡️',
+                    'callback_data' => 'pdf_tests_page_' . ($page + 1)
+                ];
+            }
+
+            if (!empty($paginationRow)) {
+                $keyboard[] = $paginationRow;
+            }
+        }
+
+        // Add back button
         $keyboard[] = [
             [
                 'text' => '🔙 Asosiy menyuga qaytish',
@@ -201,7 +246,7 @@ class PdfTestService
 
             $answers = strtolower(trim($answers));
 
-            // Validate answers format
+            // Validate answers format a to z letters
             if (!preg_match('/^[a-z]+$/', $answers)) {
                 $this->telegramService->sendMessage("❌ Javoblar faqat harflaridan iborat bo'lishi kerak.", $chatId);
                 return;
@@ -256,8 +301,8 @@ class PdfTestService
         $userAnswers = strtolower(trim($answers));
 
         // Validate answers format
-        if (!preg_match('/^[abcd]+$/', $userAnswers)) {
-            $this->telegramService->sendMessage("❌ Javoblar faqat a, b, c, d harflaridan iborat bo'lishi kerak.", $chatId);
+        if (!preg_match('/^[a-z]+$/', $userAnswers)) {
+            $this->telegramService->sendMessage("❌ Javoblar faqat harflaridan iborat bo'lishi kerak.", $chatId);
             return;
         }
 
@@ -318,16 +363,184 @@ class PdfTestService
         // $this->telegramService->sendMessageForDebug($pdfTest);
 
         // Send PDF file
-        $caption = "📚 <b>{$pdfTest->name}</b>\n\n";
-        $caption .= "📊 <b>Savollar soni:</b> {$pdfTest->questions_count}\n";
+        $caption1 = "📚 <b>{$pdfTest->name}</b>\n\n";
+        $caption = "📊 <b>Savollar soni:</b> {$pdfTest->questions_count}\n";
         $caption .= "⏰ Javoblarni quyidagi ko'rinishda yuboring: <b>abcda</b>";
 
-        $this->telegramService->sendDocumentByFileId($chatId, $pdfTest->file_id, $caption);
-
+        $this->telegramService->sendDocumentByFileId($chatId, $pdfTest->file_id, $caption1);
+        $this->telegramService->sendMessageRemoveKeyboard($caption, $chatId);
         $this->userRepository->updateUser($chatId, [
             'page_state' => 'waiting_for_pdf_test_answers',
             'active_pdf_test_id' => $testId
         ]);
+    }
+
+    public function handlePdfTestsPagination($chatId, $page)
+    {
+        $this->showUserTestsMenu($chatId, $page);
+    }
+
+    /**
+     * Show admin test management with pagination
+     * This method can be used in the future to show all tests to admins with management options
+     */
+    public function showAdminTestManagement($chatId, $page = 1)
+    {
+        $pdfTests = $this->pdfTestRepository->getAllActivePdfTests();
+
+        if ($pdfTests->isEmpty()) {
+            $message = "📚 <b>Admin: Testlar</b>\n\nHozirda mavjud testlar yo'q.";
+            $buttons = [
+                '🔙 Asosiy menyuga qaytish'
+            ];
+            $this->telegramService->sendReplyKeyboard($message, $chatId, $buttons);
+            return;
+        }
+
+        $itemsPerPage = 10;
+        $totalTests = $pdfTests->count();
+        $totalPages = ceil($totalTests / $itemsPerPage);
+
+        // Validate page number
+        if ($page < 1) $page = 1;
+        if ($page > $totalPages) $page = $totalPages;
+
+        // Get tests for current page
+        $offset = ($page - 1) * $itemsPerPage;
+        $currentPageTests = $pdfTests->slice($offset, $itemsPerPage);
+
+        $message = "📚 <b>Admin: Testlar boshqaruvi</b> (Sahifa {$page}/{$totalPages})";
+
+        $keyboard = [];
+
+        // Add test buttons with management options
+        foreach ($currentPageTests as $test) {
+            $keyboard[] = [
+                [
+                    'text' => "📝 {$test->name}",
+                    'callback_data' => 'admin_pdf_test_' . $test->id
+                ]
+            ];
+        }
+
+        // Add pagination buttons
+        $paginationRow = [];
+
+        if ($totalPages > 1) {
+            if ($page > 1) {
+                $paginationRow[] = [
+                    'text' => '⬅️ Oldingi',
+                    'callback_data' => 'admin_pdf_tests_page_' . ($page - 1)
+                ];
+            }
+
+            if ($page < $totalPages) {
+                $paginationRow[] = [
+                    'text' => 'Keyingi ➡️',
+                    'callback_data' => 'admin_pdf_tests_page_' . ($page + 1)
+                ];
+            }
+
+            if (!empty($paginationRow)) {
+                $keyboard[] = $paginationRow;
+            }
+        }
+
+        // Add action buttons
+        $keyboard[] = [
+            [
+                'text' => '➕ Yangi test qo\'shish',
+                'callback_data' => 'add_pdf_test'
+            ]
+        ];
+
+        $keyboard[] = [
+            [
+                'text' => '🔙 Asosiy menyuga qaytish',
+                'callback_data' => 'back_to_main_menu'
+            ]
+        ];
+
+        $this->telegramService->sendInlineKeyboard($message, $chatId, $keyboard);
+    }
+
+    /**
+     * Generic method to create paginated keyboard
+     * @param array $items Array of items to paginate
+     * @param int $page Current page number
+     * @param int $itemsPerPage Number of items per page
+     * @param callable $itemCallback Function to convert item to keyboard button
+     * @param string $callbackPrefix Prefix for callback data
+     * @param string $paginationCallbackPrefix Prefix for pagination callback data
+     * @return array Array with 'keyboard' and 'totalPages'
+     */
+    public function createPaginatedKeyboard($items, $page = 1, $itemsPerPage = 10, $itemCallback = null, $callbackPrefix = 'item_', $paginationCallbackPrefix = 'page_')
+    {
+        $totalItems = count($items);
+        $totalPages = ceil($totalItems / $itemsPerPage);
+
+        // Validate page number
+        if ($page < 1) $page = 1;
+        if ($page > $totalPages) $page = $totalPages;
+
+        // Get items for current page
+        $offset = ($page - 1) * $itemsPerPage;
+        $currentPageItems = array_slice($items, $offset, $itemsPerPage);
+
+        $keyboard = [];
+
+        // Add item buttons (2 per row)
+        $itemRow = [];
+        foreach ($currentPageItems as $item) {
+            if ($itemCallback) {
+                $button = $itemCallback($item);
+                $itemRow[] = $button;
+            } else {
+                $itemRow[] = [
+                    'text' => $item['name'] ?? $item['text'] ?? 'Item',
+                    'callback_data' => $callbackPrefix . ($item['id'] ?? $item['callback_data'] ?? '')
+                ];
+            }
+
+            if (count($itemRow) == 2) {
+                $keyboard[] = $itemRow;
+                $itemRow = [];
+            }
+        }
+
+        // Add remaining item if odd number
+        if (!empty($itemRow)) {
+            $keyboard[] = $itemRow;
+        }
+
+        // Add pagination buttons
+        $paginationRow = [];
+
+        if ($totalPages > 1) {
+            if ($page > 1) {
+                $paginationRow[] = [
+                    'text' => '⬅️ Oldingi',
+                    'callback_data' => $paginationCallbackPrefix . ($page - 1)
+                ];
+            }
+
+            if ($page < $totalPages) {
+                $paginationRow[] = [
+                    'text' => 'Keyingi ➡️',
+                    'callback_data' => $paginationCallbackPrefix . ($page + 1)
+                ];
+            }
+
+            if (!empty($paginationRow)) {
+                $keyboard[] = $paginationRow;
+            }
+        }
+
+        return [
+            'keyboard' => $keyboard,
+            'totalPages' => $totalPages,
+            'currentPage' => $page
+        ];
     }
 
     public function showPdfTestResult($chatId, $result)

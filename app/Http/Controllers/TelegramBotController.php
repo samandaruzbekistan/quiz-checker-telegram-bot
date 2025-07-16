@@ -403,6 +403,16 @@ class TelegramBotController extends Controller
             $this->pdfTestService->handlePdfTestSelection($chat_id, $test_id);
         }
 
+        if (str_starts_with($callback_data, 'pdf_tests_page_')) {
+            $page = str_replace('pdf_tests_page_', '', $callback_data);
+            $this->pdfTestService->handlePdfTestsPagination($chat_id, intval($page));
+        }
+
+        if (str_starts_with($callback_data, 'admin_pdf_tests_page_')) {
+            $page = str_replace('admin_pdf_tests_page_', '', $callback_data);
+            $this->pdfTestService->showAdminTestManagement($chat_id, intval($page));
+        }
+
         // Handle back buttons (after specific PDF test callbacks)
         if (str_starts_with($callback_data, 'back_to_')) {
             $this->handleBackButton($chat_id, $callback_data, $message_id);
