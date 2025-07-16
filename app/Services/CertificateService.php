@@ -140,7 +140,7 @@ class CertificateService
         });
 
         // Add author
-        $image->text($data['quiz_author'], 1300, $height * 0.84, function ($font) use ($fontPath) {
+        $image->text($data['quiz_author'], 1260, $height * 0.84, function ($font) use ($fontPath) {
             $font->filename($fontPath);
             $font->size(30);
             $font->color('#000000');

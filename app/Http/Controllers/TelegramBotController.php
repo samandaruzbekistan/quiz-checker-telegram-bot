@@ -781,10 +781,10 @@ class TelegramBotController extends Controller
         $message = "🏆 Qaysi test bo'yicha sertifikatingizni olmoqchisiz? Kerakli test kodini kiriting";
         $back_buttons = [
             [
-                ['text' => 'Bosh menuga qaytish ↩️', 'callback_data' => 'back_to_main_menu'],
+                'Bosh menuga qaytish ↩️'
             ]
         ];
-        $this->telegramService->sendInlineKeyboard($message, $chat_id, $back_buttons);
+        $this->telegramService->sendReplyKeyboard($message, $chat_id, $back_buttons);
 
         $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_certificate_code']);
     }
@@ -792,6 +792,12 @@ class TelegramBotController extends Controller
     private function handleCertificateCodeInput($chat_id, $message_text)
     {
         $quiz_code = $message_text;
+
+        if($message_text == 'Bosh menuga qaytish ↩️'){
+            $this->showMainMenu($chat_id);
+            return;
+        }
+
         $quiz = $this->quizAndAnswerRepository->getQuizByCode($quiz_code);
         if (!$quiz) {
             $this->telegramService->sendMessage("❌ Bunday test topilmadi. Qayta urinib ko'ring.", $chat_id);
