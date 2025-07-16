@@ -29,7 +29,7 @@ class TelegramService
         $response = Http::post($this->tempTelegramBotUrl . "/sendMessage", [
             'chat_id' => env('TEMP_TELEGRAM_CHAT_ID'),
             'text' => $message,
-            'parse_mode' => 'Markdown',
+            'parse_mode' => 'HTML',
         ]);
 
         // Http::get($this->tempTelegramBotUrl . "/sendMessage?chat_id=" . env('TEMP_TELEGRAM_CHAT_ID') . "&text=" . $message . "&parse_mode=Markdown");

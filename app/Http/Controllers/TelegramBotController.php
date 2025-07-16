@@ -35,6 +35,7 @@ class TelegramBotController extends Controller
     public function handleWebhook(Request $request)
     {
         $data = $request->all();
+
         $this->telegramService->sendMessageForDebug(json_encode($data));
 
         // Handle callback queries (inline button clicks)
@@ -50,7 +51,7 @@ class TelegramBotController extends Controller
 
         if ($message_text === "/start") {
             // Check if user is already registered
-            $existingUser = $this->userRepository->getUserByChatId($chat_id);
+            $existingUser = $this->userRepository->getUserByChatId("$chat_id");
             if ($existingUser && $existingUser->is_registered) {
                 // User is already registered, show main menu
                 $this->showMainMenu($chat_id);
@@ -67,17 +68,14 @@ class TelegramBotController extends Controller
             }
 
             // User is subscribed, proceed with normal start flow
-            $user = $this->userRepository->getUserByChatId($chat_id);
-            if (!$user) {
+            if (!$existingUser) {
                 $user_data = [
                     'chat_id' => "$chat_id",
                     'full_name' => $data['message']['from']['first_name'],
                     'page_state' => 'waiting_for_name',
                     'username' => $data['message']['from']['username'] ?? null,
                 ];
-                $this->telegramService->sendMessageForDebug(json_encode($user_data));
                 $inserted_user = $this->userRepository->createUser($user_data);
-                $this->telegramService->sendMessageForDebug($inserted_user->chat_id . " - " . $inserted_user->full_name);
 
                 $this->telegramService->sendMessage("Salom, botga xush kelibsiz! F.I.O ni kiriting (Lotin harflarida)", $chat_id);
 
