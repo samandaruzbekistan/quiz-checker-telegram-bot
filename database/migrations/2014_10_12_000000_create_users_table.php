@@ -41,6 +41,7 @@ return new class extends Migration
             $table->string('temp_pdf_test_file_id')->nullable();
             $table->integer('temp_pdf_test_questions_count')->nullable();
             $table->unsignedBigInteger('active_pdf_test_id')->nullable();
+            $table->boolean('is_registered')->default(false);
 
             $table->timestamps();
         });

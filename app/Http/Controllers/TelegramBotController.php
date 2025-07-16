@@ -45,13 +45,15 @@ class TelegramBotController extends Controller
         }
 
         $chat_id = $data['message']['chat']['id'] ?? null;
+        $chat_id = "$chat_id";
         $message_text = $data['message']['text'] ?? null;
         $message = $data['message'] ?? null;
         $document = $data['message']['document'] ?? null;
+        $message_id = $data['message']['message_id'] ?? null;
 
         if ($message_text === "/start") {
             // Check if user is already registered
-            $existingUser = $this->userRepository->getUserByChatId("$chat_id");
+            $existingUser = $this->userRepository->getUserByChatId($chat_id);
             if ($existingUser && $existingUser->is_registered) {
                 // User is already registered, show main menu
                 $this->showMainMenu($chat_id);
@@ -162,7 +164,7 @@ class TelegramBotController extends Controller
                 if ($message_text === 'Orqaga 🔙') {
                     // Go back to language selection
                     $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_language']);
-                    $this->showLanguageSelection($chat_id, null, $user->grade);
+                    $this->authService->handleLanguageSelection($chat_id, $user->lang, null);
                 } else {
                     $this->authService->handlePhoneInput($chat_id, $message, $user);
                 }
@@ -229,6 +231,12 @@ class TelegramBotController extends Controller
             } elseif ($user && $user->page_state === 'waiting_for_pdf_test_file' && $document) {
                 $this->pdfTestService->handlePdfTestFileInput($chat_id, $document);
             }
+            elseif ($user && $user->page_state === 'waiting_for_confirmation_choice') {
+                $result = $this->authService->handleConfirmation($chat_id, $message_text, $message_id);
+                if ($result == 1) {
+                    $this->showMainMenu($chat_id);
+                }
+            }
             elseif ($user && $user->page_state === 'waiting_for_broadcast_message' && in_array($chat_id, $this->admins))
             {
                 $allUsers = $this->userRepository->getAllUsers();
@@ -264,6 +272,7 @@ class TelegramBotController extends Controller
     private function handleCallbackQuery($callbackQuery)
     {
         $chat_id = $callbackQuery['from']['id'];
+        $chat_id = "$chat_id";
         $callback_data = $callbackQuery['data'];
         $message_id = $callbackQuery['message']['message_id'];
         $callback_query_id = $callbackQuery['id'];
@@ -324,16 +333,6 @@ class TelegramBotController extends Controller
         // Handle back buttons (after specific PDF test callbacks)
         if (str_starts_with($callback_data, 'back_to_')) {
             $this->handleBackButton($chat_id, $callback_data, $message_id);
-        }
-
-        // Handle confirmation
-        if ($callback_data === 'confirm_registration') {
-            $this->handleRegistrationConfirmation($chat_id, $message_id);
-        }
-
-        // Handle restart registration
-        if ($callback_data === 'restart_registration') {
-            $this->handleRestartRegistration($chat_id, $message_id);
         }
 
         // Handle back to main menu
@@ -599,42 +598,6 @@ class TelegramBotController extends Controller
             $chat_id,
             $message_id,
             "Tumaningizni tanlang:"
-        );
-    }
-
-    private function handleRegistrationConfirmation($chat_id, $message_id)
-    {
-        // Mark registration as completed
-        $this->userRepository->updateUser($chat_id, [
-            'page_state' => 'main_menu',
-            'is_registered' => true
-        ]);
-
-        // Show main menu with 6 buttons
-        $this->showMainMenu($chat_id, $message_id);
-    }
-
-    private function handleRestartRegistration($chat_id, $message_id)
-    {
-        // Reset user data and start over
-        $this->userRepository->updateUser($chat_id, [
-            'page_state' => 'waiting_for_name',
-            'full_name' => null,
-            'region' => null,
-            'district' => null,
-            'participant_type' => null,
-            'school_name' => null,
-            'grade' => null,
-            'lang' => null,
-            'phone_number' => null,
-            'is_registered' => false
-        ]);
-
-        // Edit the message to ask for name again
-        $this->telegramService->editMessageText(
-            $chat_id,
-            $message_id,
-            "Yangi ro'yxatdan o'tish boshlandi.\n\nIltimos, to'liq ismingizni kiriting:"
         );
     }
 

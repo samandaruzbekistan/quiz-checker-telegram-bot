@@ -348,8 +348,10 @@ class AuthService
             'page_state' => 'waiting_for_phone'
         ]);
 
-        // Delete the message to show selected language and ask for phone number with contact button
-        $this->telegramService->deleteMessage($chat_id, $message_id);
+        // Delete the message if message_id is provided
+        if ($message_id) {
+            $this->telegramService->deleteMessage($chat_id, $message_id);
+        }
 
         $contact_button = [
             [
@@ -367,16 +369,20 @@ class AuthService
         );
     }
 
-    // Handle phone number in contact button
+        // Handle phone number in contact button
     public function handlePhoneInput($chat_id, $message, $user)
     {
         if(isset($message['contact'])){
             $phone_number = $message['contact']['phone_number'];
+
             $this->userRepository->updateUser($chat_id, [
                 'phone_number' => $phone_number,
-                'page_state' => 'waiting_for_confirmation'
+                'page_state' => 'waiting_for_confirmation_choice'
             ]);
-            $this->showConfirmation($chat_id, $user);
+
+            // Get updated user data to show confirmation with phone number
+            $updatedUser = $this->userRepository->getUserByChatId($chat_id);
+            $this->showConfirmation($chat_id, $updatedUser);
         }
         else{
             $contact_button = [
@@ -417,23 +423,44 @@ class AuthService
         // Create confirmation keyboard
         $confirmationKeyboard = [
             [
-                [
-                    'text' => '✅ Ha, to\'g\'ri',
-                    'callback_data' => 'confirm_registration'
-                ],
-                [
-                    'text' => '❌ Qayta kiritish',
-                    'callback_data' => 'restart_registration'
-                ]
+                '✅ Ha, to\'g\'ri',
+                '❌ Qayta kiritish'
             ]
         ];
 
-        $this->telegramService->sendInlineKeyboard(
+        $this->telegramService->sendReplyKeyboard(
             $confirmationMessage,
             $chat_id,
             $confirmationKeyboard
         );
+
     }
+
+    public function handleConfirmation($chat_id, $message_text, $message_id)
+    {
+        if($message_text == '✅ Ha, to\'g\'ri'){
+            $this->userRepository->updateUser($chat_id, [
+                'is_registered' => true
+            ]);
+            return 1;
+        }
+        else{
+            $this->handleRestartRegistration($chat_id, $message_id);
+            return 0;
+        }
+    }
+
+    private function handleRestartRegistration($chat_id, $message_id = null)
+    {
+        // Reset user data and start over
+        $this->userRepository->updateUser($chat_id, [
+            'page_state' => 'waiting_for_name',
+            'is_registered' => false
+        ]);
+
+        $this->telegramService->sendMessageRemoveKeyboard("Yangi ro'yxatdan o'tish boshlandi.\n\nIltimos, to'liq ismingizni kiriting:", $chat_id);
+    }
+
 
     public function getParticipantTypeLabel($type)
     {
