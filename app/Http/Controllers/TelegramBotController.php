@@ -697,7 +697,7 @@ class TelegramBotController extends Controller
                 ['📝 Test yaratish', '✅ Javoblarni tekshirish'],
                 ['🏆 Sertifikatlar', '🔸 Testlar'],
                 ['⚙️ Profil sozlamalari', '📚 Kitoblar'],
-                ['👤 Foydalanuvchilarga xabar yuborish']
+                ['👤 Foydalanuvchilarga xabar yuborish', '👥 Foydalanuvchilar']
             ];
         }
         else{
@@ -756,7 +756,14 @@ class TelegramBotController extends Controller
                     $this->userRepository->updateUser($chat_id, ['page_state' => 'waiting_for_broadcast_message']);
                     $this->telegramService->sendMessage("📤 Yubormoqchi bo'lgan xabaringizni yuboring:\n\n📝 Matn, 🖼️ Rasm, 🎥 Video, 📄 Hujjat, 🎵 Audio yoki boshqa turdagi xabarlarni yuborishingiz mumkin.", $chat_id);
                 } else {
-                    $this->telegramService->sendMessage('Sizda bu amal uchun ruxsat yo‘q.', $chat_id);
+                    $this->telegramService->sendMessage('Sizda bu amal uchun ruxsat yo\'q.', $chat_id);
+                }
+                break;
+            case '👥 Foydalanuvchilar':
+                if (in_array($chat_id, $this->admins)) {
+                    $this->handleUsersList($chat_id);
+                } else {
+                    $this->telegramService->sendMessage('Sizda bu amal uchun ruxsat yo\'q.', $chat_id);
                 }
                 break;
             default:
@@ -965,5 +972,38 @@ class TelegramBotController extends Controller
 
         // Show main menu
         $this->showMainMenu($chat_id);
+    }
+
+    private function handleUsersList($chat_id)
+    {
+        try {
+            // Get all users
+            $users = $this->userRepository->getAllUsers();
+
+            if ($users->isEmpty()) {
+                $this->telegramService->sendMessage("❗ Hali hech qanday foydalanuvchi ro'yxatdan o'tmagan.", $chat_id);
+                return;
+            }
+
+            // Create PDF view
+            $pdfView = view('exports.users_list_pdf', compact('users'))->render();
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadHTML($pdfView);
+
+            // Generate filename
+            $filename = "users_list_{$chat_id}_" . now()->timestamp . ".pdf";
+            \Illuminate\Support\Facades\Storage::put("public/exports/{$filename}", $pdf->output());
+
+            $filePath = storage_path("app/public/exports/{$filename}");
+
+            // Send PDF to admin
+            $this->telegramService->sendDocument($chat_id, $filePath, "👥 Barcha foydalanuvchilar ro'yxati");
+
+            // Clean up file
+            \Illuminate\Support\Facades\Storage::delete("public/exports/{$filename}");
+
+        } catch (\Exception $e) {
+            $this->telegramService->sendMessage("❌ Foydalanuvchilar ro'yxatini yaratishda xatolik yuz berdi.", $chat_id);
+            $this->telegramService->sendMessageForDebug("❌ Exception: " . $e->getMessage());
+        }
     }
 }
