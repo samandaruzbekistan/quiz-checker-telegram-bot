@@ -15,7 +15,7 @@ class QuizResultService
         protected QuizAndAnswerRepository $quizAndAnswerRepository,
         protected TelegramService $telegramService,
         protected UserRepository $userRepository,
-        protected CertificateService $certificateService
+        protected CertificateService $certificateService,
     )
     {
     }
@@ -60,6 +60,18 @@ class QuizResultService
                 ]
             ];
             $this->telegramService->sendReplyKeyboard("❗ Bu test yakunlangan. Qayta urinib ko'ring.", $chat_id, $keyboard);
+            return 0;
+        }
+
+        // Check if user has already taken this test
+        $existingAnswer = $this->quizAndAnswerRepository->getAnswerByQuizIdAndUserChatId($quiz->id, $chat_id);
+        if ($existingAnswer) {
+            $keyboard = [
+                [
+                    'Bosh menuga qaytish ↩️'
+                ]
+            ];
+            $this->telegramService->sendReplyKeyboard("❗ Siz bu testni allaqachon topshirgansiz. Qayta topshirish mumkin emas.", $chat_id, $keyboard);
             return 0;
         }
 
